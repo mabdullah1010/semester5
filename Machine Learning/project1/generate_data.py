@@ -40,6 +40,6 @@ def generate_all_datasets(n_list):
         generate_dataset(n)
 
 
-generate_all_datasets([20,200,2000])
+#generate_all_datasets([20,200,2000])
 
 
