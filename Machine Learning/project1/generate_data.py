@@ -1,5 +1,8 @@
-from random import *
+# Muhammad Abdullah
+# COM307
+# SEPTEMBER 26th 2026
 
+from random import *
 
 
 # 50% chance of 6 and 10% chance for each of (1,2,3,4,5)
