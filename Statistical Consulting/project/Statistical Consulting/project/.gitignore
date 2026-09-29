@@ -1,0 +1,81 @@
+# Environment
+.env.*
+.env
+
+# Local docs and data
+AGENTS.md
+*.md
+data/
+*.csv
+*.json
+*.xlsx
+*.xls
+*.tsv
+
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.idea/
+
+# Logs & temp
+*.log
+*.tmp
+*.temp
+
+# Compiled
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Backup
+*.bak
+*.backup
+
+# Large data files
+*.h5
+*.hdf5
+*.npz
+*.pkl
