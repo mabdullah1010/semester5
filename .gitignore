@@ -4,6 +4,8 @@
 # Local docs
 AGENTS.md
 
+*.md
+
 # OS
 .DS_Store
 Thumbs.db
