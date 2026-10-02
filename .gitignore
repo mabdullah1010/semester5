@@ -1,10 +1,13 @@
 # Environment
 .env.*
+.env
 
 # Local docs
 AGENTS.md
 
+# Documentation (excluding project brief)
 *.md
+!Statistical\ Consulting/project/binance_mm_project_brief.md
 
 # OS
 .DS_Store
@@ -29,6 +32,7 @@ build/
 
 # Jupyter
 .ipynb_checkpoints/
+*.ipynb
 
 # Node
 node_modules/
@@ -62,3 +66,37 @@ yarn-error.log*
 # Backup
 *.bak
 *.backup
+
+# Large data files
+*.parquet
+*.pickle
+*.pkl
+*.h5
+*.hdf5
+
+# Images and plots
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+*.tif
+
+# Data directories
+**/raw/
+**/parquet/
+**/eda_out/
+
+# Output files
+**/output/
+**/results/
+**/figures/
+
+# Cache files
+**/cache/
+**/__pycache__/
+
+# Temporary files
+**/tmp/
+**/temp/

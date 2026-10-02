@@ -1,1 +1,0 @@
-# Clean repository after reset
