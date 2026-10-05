@@ -1,4 +1,5 @@
-;; Muhammad Abdullah
+;; Muhammad Abdullah; Abdul Rehman; Joseph Coombs
+;; Robot
 ;; MINIMAX with ALPHA_BETA pruning
 ;; October 2nd 2026
 
