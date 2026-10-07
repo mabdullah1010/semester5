@@ -83,7 +83,6 @@
 
 
 
-
 (define r-backpropagate
   (lambda (node result)
 
