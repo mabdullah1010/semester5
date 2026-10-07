@@ -1,212 +1,176 @@
-;; Muhammad Abdullah; Abdul Rehman; Joseph Coombs
-;; Robot
-;; MINIMAX with ALPHA_BETA pruning
-;; October 2nd 2026
+;; =======================================================
+;; AI Problem 4: Game Playing (Monte Carlo Tree Search)
+;; Replaces heuristic-based Minimax with pure statistical MCTS.
+;; Runs 10,000 random simulations per turn to a depth of 80 steps
+;; to evaluate the best physical move without measuring distance.
+;; =======================================================
 
+;; -------------------------------------------------------
+;; 1. NODE DATA STRUCTURE
+;; A node is represented as a vector:
+;; #(state parent children untried-moves visits wins)
+;; state = (list robot-pos goal-pos is-robot-turn)
+;; -------------------------------------------------------
+(define make-node 
+  (lambda (state parent untried-moves)
+    (vector state parent '() untried-moves 0 0.0)))
 
-;; depth limit
-(define max-depth 5)
+(define node-state      (lambda (n) (vector-ref n 0)))
+(define node-parent     (lambda (n) (vector-ref n 1)))
+(define node-children   (lambda (n) (vector-ref n 2)))
+(define node-untried    (lambda (n) (vector-ref n 3)))
+(define node-visits     (lambda (n) (vector-ref n 4)))
+(define node-wins       (lambda (n) (vector-ref n 5)))
 
-;;how far ahead the evaluator checks around obstacles
-(define local-search-depth 3)
+(define set-node-children! (lambda (n c) (vector-set! n 2 c)))
+(define set-node-untried!  (lambda (n u) (vector-set! n 3 u)))
+(define set-node-visits!   (lambda (n v) (vector-set! n 4 v)))
+(define set-node-wins!     (lambda (n w) (vector-set! n 5 w)))
 
-(define infinity 1000000)
-(define minus-infinity -1000000)
-
-;; PERSISTENCE FACTOR - heat map
-
-;; this 2D memory matrix tracks how many times the robot steps on each square
-;; by applying a huge penalty to previously visited squares
-;; the robot is forced to move out of dead ends and U shaped walls
-
-
-(define robot-heatmap '())
-
-
-(define init-heatmap
-
-  (lambda ()
-    (set! robot-heatmap (make-vector num-col-row))
-
-    (let loop ((y 0))
-
-      (if (< y num-col-row)
-          (begin
-            (vector-set! robot-heatmap y (make-vector num-col-row 0))
-            
-            (loop (+ y 1)))))))
-
-
-
-;; returns the number of times a coordinate has been visited
-(define get-heat
+;; Helper to get valid moves (append "stay in place" to adjacent open blocks)
+(define get-valid-moves
   (lambda (pos)
-    (if (null? robot-heatmap)
-        0
+    (append (adjacento pos) (list pos))))
 
-        (vector-ref (vector-ref robot-heatmap (cadr pos)) (car pos)))))
+;; -------------------------------------------------------
+;; 2. MCTS ENGINE FUNCTIONS
+;; -------------------------------------------------------
 
-
-;; increments visit count
-(define add-heat!
-  (lambda (pos)
-
-    (if (null? robot-heatmap)
-        (init-heatmap))
-
-    (let* ((x (car pos))
-           (y (cadr pos))
-
-           (current (vector-ref (vector-ref robot-heatmap y) x)))
-
-      (vector-set! (vector-ref robot-heatmap y) x (+ current 1)))))
+;; Calculates the Upper Confidence Bound (UCB1) formula
+;; UCB1 = (Wins / Visits) + C * sqrt(ln(ParentVisits) / Visits)
+(define ucb-score
+  (lambda (child parent-visits)
+    (let ((v (node-visits child))
+          (w (node-wins child)))
+      (if (= v 0)
+          1000000.0 
+          ;; Changed 1.414 to 0.5 to heavily exploit any path that finds a 1.0
+          (+ (/ w v) (* 0.5 (sqrt (/ (log parent-visits) v))))))))
 
 
 
+;; PHASE 1: SELECTION (Tree Traversal)
+;; Walks down the tree by picking children with the highest UCB score.
+;; Stops and returns a node if it has untried moves or represents a terminal state.
+(define select-node
+  (lambda (node)
+    (cond
+      ;; Terminal state (Robot and Goal share the same block)
+      ((equal? (car (node-state node)) (cadr (node-state node))) node)
+      ;; Node has untried moves available for expansion
+      ((not (null? (node-untried node))) node)
+      ;; Dead end (no children and no untried moves)
+      ((null? (node-children node)) node)
+      ;; Recursively select the best UCB child
+      (else (select-node (get-best-ucb-child node))))))
+
+(define get-best-ucb-child
+  (lambda (node)
+    (let ((children (node-children node))
+          (p-visits (node-visits node)))
+      (let loop ((c children) (best-child (car children)) (best-score -1.0))
+        (if (null? c)
+            best-child
+            (let ((score (ucb-score (car c) p-visits)))
+              (if (> score best-score)
+                  (loop (cdr c) (car c) score)
+                  (loop (cdr c) best-child best-score))))))))
+
+;; PHASE 2: EXPANSION
+;; Pops one untried move, calculates the new board state, and adds a new child node.
+(define expand-node
+  (lambda (node)
+    (if (or (null? (node-untried node))
+            (equal? (car (node-state node)) (cadr (node-state node))))
+        node ;; Cannot expand a terminal or fully expanded node
+        
+        (let* ((move (car (node-untried node)))
+               (rest-untried (cdr (node-untried node)))
+               (state (node-state node))
+               (r-pos (car state))
+               (g-pos (cadr state))
+               (is-r-turn (caddr state))
+               
+               ;; Generate the new board state based on whose turn it was
+               (new-state (if is-r-turn
+                              (list move g-pos #f)
+                              (list r-pos move #t)))
+                              
+               ;; Generate valid moves for the next player
+               (new-untried (if is-r-turn
+                                (get-valid-moves g-pos)
+                                (get-valid-moves move)))
+                                
+               (new-node (make-node new-state node new-untried)))
+               
+          ;; Remove the move from parent's untried list and link the new child
+          (set-node-untried! node rest-untried)
+          (set-node-children! node (cons new-node (node-children node)))
+          new-node))))
+
+;; PHASE 3: SIMULATION (Rollout)
+;; Plays a completely random ghost game up to 80 steps.
+;; Returns 1.0 for a robot win, 0.0 for a loss (hitting the step limit).
+(define simulate
+  (lambda (node)
+    (let loop ((state (node-state node)) (depth 0))
+      (let ((r-pos (car state))
+            (g-pos (cadr state))
+            (is-r-turn (caddr state)))
+        (cond
+          ;; Pure Win
+          ((equal? r-pos g-pos) 1.0)   
+          
+          ;; Pure Loss, but depth increased to 400 to allow intersection
+          ((>= depth 400) 0.0)          
+          
+          (is-r-turn
+           (let* ((moves (get-valid-moves r-pos))
+                  (move (list-ref moves (random (length moves)))))
+             (loop (list move g-pos #f) (+ depth 1))))
+          (else
+           (let* ((moves (get-valid-moves g-pos))
+                  (move (list-ref moves (random (length moves)))))
+             (loop (list r-pos move #t) (+ depth 1)))))))))
+
+
+
+;; PHASE 4: BACKPROPAGATION
+;; Traces the result back up to the root, updating visits and wins for every node.
+(define backpropagate
+  (lambda (node result)
+    (if (not (null? node))
+        (begin
+          (set-node-visits! node (+ (node-visits node) 1))
+          (set-node-wins! node (+ (node-wins node) result))
+          (backpropagate (node-parent node) result)))))
+
+;; -------------------------------------------------------
+;; 3. MAIN DECISION LOOP
+;; -------------------------------------------------------
 (define get-next-robot
   (lambda (current-robot)
-
-    (if (null? robot-heatmap) (init-heatmap))
-    
-;; append the "stay" option (current-robot) to the end
-
-    (let* ((moves (append (adjacento current-robot) (list current-robot)))
-
-           (best-move current-robot)
-           (best-score minus-infinity)
-
-           (alpha minus-infinity)
-           (beta infinity))
+    (let* ((initial-untried (get-valid-moves current-robot))
+           (root (make-node (list current-robot goal #t) '() initial-untried)))
       
-      (let loop ((m moves) (current-alpha alpha))
-
-        (if (null? m)
-            (begin
-
-            ;; add chosen move in the heat map memory
-              (add-heat! best-move)
-              best-move)
-              
-            (let* ((score
-                     (minimax (car m) goal max-depth current-alpha beta #f))
-                   
-                   ;Staying is allowed but disincentivized so robot doesn't
-                   ;get stuck waiting behind obstacles
-                   (adjusted-score
-                     (if (equal? (car m) current-robot)
-                         (- score 30)
-                         score)))
-              (if (> adjusted-score best-score)
-                  (begin
-                    (set! best-score adjusted-score)
-                    (set! best-move (car m))))
-              ;; update alpha to prune future useless branches
-              (loop (cdr m) (max current-alpha best-score))))))))
-
-
-(define minimax
-  (lambda (r-pos g-pos depth alpha beta is-robot-turn)
-    (cond
-
-      ;; add depth to infinity so immediate capture is better than capturing later on
-      ;; robot will always choose the fastest possible capture
-
-      ((equal? r-pos g-pos) (+ infinity depth))
+      ;; Lowered from 10,000 to 4,000 to offset the computational cost of depth 400
+      (let loop ((i 0))
+        (if (< i 4000)
+            (let* ((selected (select-node root))
+                   (expanded (expand-node selected))
+                   (result (simulate expanded)))
+              (backpropagate expanded result)
+              (loop (+ i 1)))))
       
-      ((<= depth 0) (evaluate r-pos g-pos))
-      
-      (is-robot-turn
+      (let ((children (node-children root)))
+        (if (null? children)
+            current-robot 
+            (let loop2 ((c children) (best-child (car children)) (max-v -1))
+              (if (null? c)
+                  (car (node-state best-child))
+                  (let ((v (node-visits (car c))))
+                    (if (> v max-v)
+                        (loop2 (cdr c) (car c) v)
+                        (loop2 (cdr c) best-child max-v))))))))))
 
-
-      (let loop ((m (append (adjacento r-pos) (list r-pos))) (max-eval minus-infinity) (a alpha))
-         (if (null? m)
-             max-eval
-
-             (let ((eval (minimax (car m) g-pos (- depth 1) a beta #f)))
-               (let ((new-max (max max-eval eval)))
-                 (let ((new-a (max a eval)))
-
-                   (if (<= beta new-a)
-                       new-max 
-                       (loop (cdr m) new-max new-a))))))))
-                       
-      (else
-        (let loop ((m
-                     (if (< (+ (abs (- (car r-pos) (car g-pos)))
-                            (abs (- (cadr r-pos) (cadr g-pos)))) 2)
-                     ;Robot is within one move, so goal must stop
-                     (list g-pos)
-                     ;Otherwise goal may stay or move
-                     (cons g-pos (adjacento g-pos))))
-          (min-eval infinity)
-          (b beta))
-         (if (null? m)
-             min-eval
-
-             (let ((eval (minimax r-pos (car m) (- depth 1) alpha b #t)))
-               (let ((new-min (min min-eval eval)))
-                 (let ((new-b (min b eval)))
-
-                   (if (<= new-b alpha)
-                       new-min 
-                       (loop (cdr m) new-min new-b)))))))))))
-
-(define path-distance
-  (lambda (start finish)
-    (let loop ((queue (list (list start 0)))
-               (visited (list start)))
-      (cond
-        ((null? queue)
-         10000)
-        ((equal? (caar queue) finish)
-         (cadar queue))
-        (else
-          (let* ((current (caar queue))
-                 (distance (cadar queue))
-                 (neighbors (adjacento current)))
-            (let add-neighbors ((lst neighbors)
-                                (new-queue (cdr queue))
-                                (new-visited visited))
-              (cond
-                ((null? lst)
-                 (loop new-queue new-visited))
-                ((member (car lst) new-visited)
-                 (add-neighbors (cdr lst)
-                   new-queue new-visited))
-                (else
-                  (add-neighbors (cdr lst) (append new-queue (list (list (car lst)
-                                                                     (+ distance 1))))
-                    (cons (car lst) new-visited)))))))))))
-
-(define local-best-distance
-  (lambda (r-pos g-pos depth)
-    (let ((here
-            (+ (abs (- (car r-pos) (car g-pos)))
-             (abs (- (cadr r-pos) (cadr g-pos))))))
-      (if (or (<= depth 0) (= here 0))
-          here
-          ; else
-          (let loop ((moves (adjacento r-pos))
-                     (best here))
-            (if (null? moves)
-                best
-                ; else
-                (loop (cdr moves)
-                  (min best (local-best-distance (car moves) g-pos (- depth 1))))))))))
-          
-
-(define evaluate
-  (lambda (r-pos g-pos)
-  
-    (let* ((dist
-             (+ (abs (- (car r-pos) (car g-pos)))
-              (abs (- (cadr r-pos) (cadr g-pos)))))
-           ;Best distance robot could reach within a few local moves
-           (local-dist (local-best-distance
-                         r-pos g-pos local-search-depth))
-           (mobility (length (adjacento g-pos)))
-          (heat (get-heat r-pos)))
-          (+ (- 0 (+ (* 10 dist) mobility (* 20 heat)))
-           
-           ;Reward position that have way around nearby obstacles
-           (* 10 (- dist local-dist))))))
+                        
