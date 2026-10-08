@@ -55,7 +55,7 @@
         (let ((win-rate (if is-robot-deciding
                             (/ num-wins num-visits)
                             (/ (- num-visits num-wins) num-visits))))
-          (+ win-rate (* 2.0 (sqrt (/ (log parent-visits) num-visits))))))))
+          (+ win-rate (* 0.5 (sqrt (/ (log parent-visits) num-visits))))))))
 
 
 (define r-select-node
@@ -122,7 +122,7 @@
 
         (cond
           ((equal? r-pos g-pos) 1.0)   ;; Win
-          ((>= depth 300) 0.0)         ;; Loss (out of depth)
+          ((>= depth 80) 0.0)         ;; Loss (out of depth)
           (is-r-turn
            (let* ((moves (r-get-valid-moves r-pos))
                   (move (list-ref moves (random (length moves)))))
@@ -151,7 +151,7 @@
       
 
       (let loop ((i 0))
-        (if (< i 1000)
+        (if (< i 5000)
 
             (let* ((selected (r-select-node root))
                    (expanded (r-expand selected))
