@@ -40,6 +40,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+
+Machine Learning/project2/*.csv
+
+
 # IDE
 .vscode/
 .idea/

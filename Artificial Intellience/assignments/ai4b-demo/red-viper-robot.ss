@@ -125,7 +125,7 @@
 
         (cond
           ((equal? r-pos g-pos) 1.0)   ;; Win
-          ((>= depth 160) 0.0)          ;; Loss (out of depth)
+          ((>= depth 80) 0.0)          ;; Loss (out of depth)
           (is-r-turn
            (let* ((moves (r-get-valid-moves r-pos))
                   (move (list-ref moves (random (length moves)))))
