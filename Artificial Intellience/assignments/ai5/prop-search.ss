@@ -103,4 +103,5 @@
             (search (- count 1)))))))))
 
 ;; To execute the program, run a search with a high enough limit to exhaust all possibilities.
-;; (search 1000)
+
+(search 10)
