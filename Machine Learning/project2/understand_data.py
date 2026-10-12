@@ -1,16 +1,21 @@
 import pandas as pd
 
 
-print("hi")
+# print("hi")
 
-df1 = pd.read_csv("2018 Crime Statistics.csv")
+# df1 = pd.read_csv("2018 Crime Statistics.csv")
 
 
-# Open the file in write mode with UTF-8 encoding
-with open("output.txt", "w", encoding="utf-8") as file:
-    file.write(str(df1.columns.to_list()))
+# # Open the file in write mode with UTF-8 encoding
+# with open("output.txt", "w", encoding="utf-8") as file:
+#     file.write(str(df1.columns.to_list()))
 
 
 print("done")
 # df = pd.read_csv("2018 Crime Statistics.csv", usecols=["OFFGUIDE", "DISTRICT", "MONRACE"])
 # print(df.head())
+
+
+import pandas as pd
+m = pd.read_csv("2018 Crime Statistics.csv", usecols=["SENTMON"])
+print(m["SENTMON"].value_counts().sort_index())
