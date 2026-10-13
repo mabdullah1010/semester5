@@ -1,4 +1,7 @@
-;; 3x3 Grid Forward-Chaining Inference Engine
+;; AI5
+;; Muhammad Abdullah
+;; October 11th 2026
+;; 3x3 grid
 
 (define rules
   '(
@@ -13,8 +16,9 @@
     ((visited21 goal21) (finished))
     ((visited22 goal22) (finished))
 
-    ;; Movement rules: A tile can be visited if an adjacent tile is visited 
-    ;; AND the target tile is NOT an obstacle.
+    ;; we can visit a tile if an adjacent tile is visited 
+    ;; and the target tile is not an obstacle
+
     ((visited00 -obstacle01) (visited01))
     ((visited00 -obstacle10) (visited10))
     
@@ -54,7 +58,7 @@
 
 (define ModusPonens
   (lambda (rule)
-    ;; If the consequent is already a known fact, return '() to prevent infinite loops.
+    ;; if the consequent is already a fact, return '()
     (if (member (car (cadr rule)) facts)
         '()
         (ModusPonens2 (car rule) (cadr rule)))))
@@ -65,13 +69,14 @@
         a
         (let* ((p (car b))
                (str-p (symbol->string p)))
-          ;; Check if the symbol represents a negative condition (starts with '-')
+          ;; if the symbol represents a negative condition
+
           (if (char=? (string-ref str-p 0) #\-)
               (let ((pos-fact (string->symbol (substring str-p 1 (string-length str-p)))))
                 (if (not (member pos-fact facts))
                     (ModusPonens2 (cdr b) a)
                     '()))
-              ;; Otherwise, it is a positive condition
+
               (if (member p facts)
                   (ModusPonens2 (cdr b) a)
                   '()))))))
@@ -85,23 +90,23 @@
       ((<= count 0)
        (display "not found")
        (newline))
+       
       (else
        (let* ((firstRule (car rules))
               (remainingRules (append (cdr rules) (list firstRule)))
               (newFact (ModusPonens firstRule)))
          
-         ;; Rotate the rules so the next iteration processes the next rule in line
+         ;;rotate the rules
          (set! rules remainingRules)
          
          (cond 
            ((not (null? newFact))
-            ;; A new fact was successfully derived; add it to the front of facts
+            ;; new fact established and add it to the facts
             (set! facts (append newFact facts))
             (search (- count 1)))
+
            (else
-            ;; No new fact was derived; continue checking the next rule
+            ;;no new fact derived
             (search (- count 1)))))))))
 
-;; To execute the program, run a search with a high enough limit to exhaust all possibilities.
-
-(search 10)
+(search 100)
