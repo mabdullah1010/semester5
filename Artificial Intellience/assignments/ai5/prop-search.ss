@@ -54,7 +54,7 @@
   ))
 
 (define facts
-  '(goal22 visited00 obstacle11 obstacle21))
+  '(goal22 visited00 obstacle11 obstacle12 obstacle21))
 
 (define ModusPonens
   (lambda (rule)
