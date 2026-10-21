@@ -1,176 +1,217 @@
-;; =======================================================
-;; AI Problem 6: First-Order Logic & Unification
-;; =======================================================
+;; AI6: FOL & unification
+;; Muhammad Abdullah
+;; October 21st 2026
 
-;; -------------------------------------------------------
-;; 1. UNIFICATION ENGINE (Pattern Matching)
-;; -------------------------------------------------------
+;; This program uses first order logic predicates and forward chaining with unification 
+;; to move a robot across a grid. 
+;; It treats obstacles as impassable unless they are low and stable enough to climb
+;; and it records the path from the start to the goal.
 
-;; Identifies variables (symbols starting with '?')
+
+;; match patterns
+;; identify variables (with a question mark)
+
 (define (variable? x)
   (and (symbol? x) (char=? (string-ref (symbol->string x) 0) #\?)))
 
-;; Unifies two predicates, returning a binding list (e.g., ((?p1 . (0 0))) ) or #f
+;; unify predicates and return binding list (or false)
 (define (unify pat1 pat2 bindings)
   (cond ((eq? bindings #f) #f)
+
         ((equal? pat1 pat2) bindings)
         ((variable? pat1) (unify-var pat1 pat2 bindings))
         ((variable? pat2) (unify-var pat2 pat1 bindings))
+
+
         ((and (pair? pat1) (pair? pat2))
-         (unify (cdr pat1) (cdr pat2) (unify (car pat1) (car pat2 bindings))))
+         (unify (cdr pat1)
+                (cdr pat2)
+                (unify (car pat1) (car pat2) bindings)))
         (else #f)))
+
 
 (define (unify-var var val bindings)
   (let ((binding (assoc var bindings)))
     (if binding
+
         (unify (cdr binding) val bindings)
         (cons (cons var val) bindings))))
 
-;; Substitutes bound variables into a predicate using the binding list
+;; substitute
 (define (substitute pat bindings)
   (cond ((variable? pat)
+
          (let ((binding (assoc pat bindings)))
            (if binding
                (substitute (cdr binding) bindings)
                pat)))
+
         ((pair? pat)
          (cons (substitute (car pat) bindings)
                (substitute (cdr pat) bindings)))
         (else pat)))
 
-;; -------------------------------------------------------
-;; 2. THE FACTS & RULES (Knowledge Base)
-;; -------------------------------------------------------
+
+(define start '(0 0))
+(define goal-pos '(2 2))
+(define grid-max 2)
 
 (define facts
   '(
-    ;; Initial starting position and Goal
-    (visited (0 0))
-    (goal (2 2))
-    
-    ;; Initial adjacencies for the starting position
-    (adjacent (0 0) (0 1))
-    (adjacent (0 0) (1 0))
+    ;;goooaaaaaal
 
-    ;; Standard Obstacles
+    (goal (2 2))
+
+    ;; obstacle
     (obstacle (1 1))
-    
-    ;; A Short, climbable obstacle
+
+    ;; climbable and stable obstacle
     (obstacle (0 2))
     (height (0 2) low)
     (stable (0 2) yes)
-    
-    ;; A Tall, unstable obstacle
+
+    ;; unclimbable unstable obstacle
     (obstacle (2 1))
     (height (2 1) high)
     (stable (2 1) no)
    ))
 
+
 (define rules
   '(
-    ;; RULE 1: Standard Movement (Free Spaces)
-    ;; Prevents bouncing back and forth by ensuring (not visited ?p2)
-    ( ((visited ?p1) (adjacent ?p1 ?p2) (not obstacle ?p2) (not visited ?p2)) 
-      ((visited ?p2)) )
+    ;; winning condition
+    ( ((visited ?p1) (goal ?p1))
 
-    ;; RULE 2: Climbing Movement (Height and Stability)
-    ;; Overrides standard obstacle rule if the block is low and stable.
-    ( ((visited ?p1) (adjacent ?p1 ?p2) (obstacle ?p2) (height ?p2 low) (stable ?p2 yes) (not visited ?p2)) 
-      ((visited ?p2)) )
-
-    ;; RULE 3: Victory Condition
-    ( ((visited ?p1) (goal ?p1)) 
       ((finished)) )
+
+    ;; move through free spaces
+    ;; checking not visited prevents moving back and forth
+
+    ( ((visited ?p1) (adjacent ?p1 ?p2) (not obstacle ?p2) (not visited ?p2))
+      ((moved ?p1 ?p2)) )
+
+    ;; climbing and stability
+    ;; only works if obstacle is low and stable
+    ( ((visited ?p1) (adjacent ?p1 ?p2) (obstacle ?p2) (height ?p2 low) (stable ?p2 yes) (not visited ?p2))
+      ((moved ?p1 ?p2)) )
    ))
 
-;; -------------------------------------------------------
-;; 3. DYNAMIC FACT GENERATION
-;; -------------------------------------------------------
 
-;; Purely mathematical function that asserts a tile is visited 
-;; AND generates the mathematical adjacent coordinates on the fly.
+;; generate facts
+
+(define (in-bounds? p)
+  (and (<= 0 (car p) grid-max)
+       (<= 0 (cadr p) grid-max)))
+
+
 (define (assert-visited! pos)
   (let ((x (car pos))
         (y (cadr pos)))
+
     (set! facts (cons `(visited ,pos) facts))
-    ;; Generate and inject all 4 directional neighbors into the knowledge base
-    (set! facts (cons `(adjacent ,pos ,(list (+ x 1) y)) facts))
-    (set! facts (cons `(adjacent ,pos ,(list (- x 1) y)) facts))
-    (set! facts (cons `(adjacent ,pos ,(list x (+ y 1))) facts))
-    (set! facts (cons `(adjacent ,pos ,(list x (- y 1))) facts))))
+    (for-each (lambda (n)
 
-;; -------------------------------------------------------
-;; 4. INFERENCE ENGINE (Forward Chaining)
-;; -------------------------------------------------------
+                (if (in-bounds? n)
+                    (set! facts (cons `(adjacent ,pos ,n) facts))))
 
-;; Recursively evaluates a list of antecedents against the fact base.
-;; Returns a list of valid binding sets that satisfy all conditions.
-(define (match-conditions conditions bindings facts)
+              (list (list (+ x 1) y)
+                    (list (- x 1) y)
+                    (list x (+ y 1))
+                    (list x (- y 1))))))
+
+
+;; evaluates list of antecedents against the fact base using recursion
+;; gives a list of binding sets that satisfy all conditions
+
+(define (match-conditions conditions bindings current-facts)
   (if (null? conditions)
       (list bindings)
       (let ((first-cond (car conditions))
             (rest-conds (cdr conditions)))
-            
+
         (if (eq? (car first-cond) 'not)
-            ;; CLOSED-WORLD ASSUMPTION: If we search the facts for the substituted 
-            ;; predicate and do NOT find it, consider the 'not' condition satisfied.
-            (let ((substituted-pred (substitute (cadr first-cond) bindings)))
-              (if (not (member substituted-pred facts))
-                  (match-conditions rest-conds bindings facts)
+
+            (let ((substituted-pred (substitute (cdr first-cond) bindings)))
+              (if (not (member substituted-pred current-facts))
+                  (match-conditions rest-conds bindings current-facts)
                   '()))
-                  
-            ;; STANDARD UNIFICATION: Search facts, unify, and branch for all matches.
+
+
             (apply append
                    (map (lambda (fact)
                           (let ((new-bindings (unify first-cond fact bindings)))
                             (if new-bindings
-                                (match-conditions rest-conds new-bindings facts)
+                                (match-conditions rest-conds new-bindings current-facts)
                                 '())))
-                        facts))))))
 
-;; Scans through the rule base exactly once, looking for the first rule 
-;; that successfully produces a brand new fact.
+                        current-facts))))))
+
+
 (define (fire-rules current-rules current-facts)
   (let loop ((rs current-rules))
     (if (null? rs)
-        #f ;; No rules fired
+        #f
         (let* ((rule (car rs))
+
                (antecedents (car rule))
                (consequent (car (cadr rule)))
                (binding-sets (match-conditions antecedents '() current-facts)))
-               
+
           (let try-bindings ((bsets binding-sets))
             (if (null? bsets)
-                (loop (cdr rs)) ;; Move to next rule
+
+                (loop (cdr rs))
                 (let ((new-fact (substitute consequent (car bsets))))
                   (if (not (member new-fact current-facts))
-                      new-fact ;; Success! Return the new fact
+                      new-fact
                       (try-bindings (cdr bsets))))))))))
 
-;; -------------------------------------------------------
-;; 5. MAIN SEARCH LOOP
-;; -------------------------------------------------------
+
 
 (define (search count)
   (cond
     ((member '(finished) facts)
-     (display "Goal found! The robot successfully navigated the environment.")
+     (display "Goal found! Path: ")
+     (display (path-to goal-pos))
      (newline))
+
     ((<= count 0)
-     (display "Not found. Search exhausted its depth limit.")
+     (display "Not found -- search exhausted depth limit")
      (newline))
     (else
-     (let ((new-fact (fire-rules rules facts)))
-       (if new-fact
-           (begin
-             ;; Intercept 'visited' facts to dynamically generate adjacencies
-             (if (eq? (car new-fact) 'visited)
-                 (assert-visited! (cadr new-fact))
-                 (set! facts (cons new-fact facts)))
-             (search (- count 1)))
-           (begin
-             (display "Not found. No more rules apply (Dead End).")
-             (newline)))))))
 
-;; To run:
+     (let ((new-fact (fire-rules rules facts)))
+       (cond
+         ((not new-fact)
+          (display "Not found -- no more rules apply -- dead end")
+          (newline))
+
+
+         ((eq? (car new-fact) 'moved)
+          (let ((from (cadr new-fact))
+                (to (caddr new-fact)))
+            (set! came-from (cons (cons to from) came-from))
+            (assert-visited! to)
+            (search (- count 1))))
+
+         (else
+          (set! facts (cons new-fact facts))
+          (search (- count 1))))))))
+
+
+
+(define came-from '())
+
+;; follow parents back to build the path
+(define (path-to p)
+  (let ((entry (assoc p came-from)))
+  
+    (if entry
+        (append (path-to (cdr entry)) (list p))
+        (list p))))
+
+
+
+(assert-visited! start)
 (search 100)
+
