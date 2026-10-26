@@ -1,3 +1,9 @@
+;; AI 7
+;; Muhammad Abdullah
+;; Production systems
+;; October 26th 2026
+
+
 
 (define current start)
 
@@ -6,14 +12,31 @@
     (move_to start)))
 
 
+;; v1
 (define rules 
   '(
-    (r1 (if (current x) (adjacent y) (not path y) (not visited y) (not obstacle y))
+    ;; explore free spaces (Highest priority)
+    ;; (not path y z) excludes every cell on the current path
+    (r1 (if (current x) (adjacent y) (not path y z) (not visited y) (not obstacle y))
+
         (delete (current x))
-        (add (path x) (delete_adjacents) (move_to y)))
-    (r2 (if (current x) (adjacent y) (not visited y) (not obstacle y))
-        (delete (current x) (path x))
+        (add (path x y) (delete_adjacents) (move_to y)))
+        
+    ;; explore low Stable obstacles (pnly fires if r1 fails)
+    (r1b (if (current x) (adjacent y) (not path y z) (not visited y) (obstacle y) (stable y) (height y low))
+    
+        (delete (current x))
+        (add (path x y) (delete_adjacents) (move_to y)))
+        
+    ;; backtrack
+    ;; (path y x) means the robot moved from y to x, so y is x's parent
+    ;; start has no parent, so the robot stops there when it runs out of moves
+
+    (r2 (if (current x) (path y x))
+        (delete (current x) (path y x))
         (add (visited x) (delete_adjacents) (backtrack_to y)))
+        
+        
     (r3 (if (delete_adjacents) (adjacent x))
         (delete (adjacent x)))
     (r4 (if (delete_adjacents))
@@ -25,7 +48,6 @@
         (delete (backtrack_to x))
         (execute (backtrack_to x)))
 ))
-
 
 (define facts '())
 
