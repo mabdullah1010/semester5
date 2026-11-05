@@ -1,29 +1,12 @@
-"""
-step1_explore.py
-----------------
-Step 1 of COM 307 Project 3: load the Ionosphere data and look at it before
-building any trees.
+# COM 307
+# Muhammad Abdullah
+# Project 3
+# Date: Nov 1st 2026
 
-What this script checks, and why it matters for later steps:
-  * class balance        -> the "always guess good" baseline we have to beat
-  * missing / duplicates -> whether any cleaning is needed
-  * constant features    -> a split search must skip a feature with one value
-  * binary features      -> threshold search still has to work on 0/1 columns
-  * value range          -> whether scaling is needed (trees don't need it)
-  * row order            -> whether "first N rows = training set" is safe
-  * per-feature separation between classes -> a first look at which pulses
-    carry signal (a screening statistic only, not used by the model)
 
-Outputs:
-  figures/step1_class_balance.png
-  figures/step1_pulse_profiles.png
-  figures/step1_top_feature_histograms.png
-  figures/step1_correlation_heatmap.png
-  results/step1_summary.txt
 
-Usage:
-  python eda.py --data ionosphere.data
-"""
+# python eda.py --data ionosphere.data
+
 
 from __future__ import annotations
 
@@ -32,7 +15,7 @@ from pathlib import Path
 
 import matplotlib
 
-matplotlib.use("Agg")  # write files only; no GUI window needed
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -40,19 +23,19 @@ from matplotlib.colors import LinearSegmentedColormap
 
 from data_utils import CLASS_NAMES, FEATURE_NAMES, N_PULSES, load_ionosphere, pulse_of
 
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
+
 FIG_DIR = Path("figures")
 RESULTS_DIR = Path("results")
-N_TOP_FEATURES = 6          # how many features to show in the histogram grid
-SPLIT_ROW = 200             # the 1989 paper trained on the first 200 rows
+N_TOP_FEATURES = 6          
+SPLIT_ROW = 200            
 
-# Colors: one fixed color per class, used in every figure.
-COLOR = {1: "#2a78d6", 0: "#eb6834"}   # good = blue, bad = orange
+
+COLOR = {1: "#2a78d6", 0: "#eb6834"}   #good=blue, bad=orange
 INK = "#0b0b0b"
 INK_MUTED = "#52514e"
 GRID = "#e4e3df"
+
+
 
 plt.rcParams.update({
     "figure.facecolor": "white",
@@ -73,60 +56,51 @@ plt.rcParams.update({
 })
 
 
-# ---------------------------------------------------------------------------
-# Analysis helpers
-# ---------------------------------------------------------------------------
+
 def class_counts(y: np.ndarray) -> dict[str, int]:
-    """Number of rows in each class, keyed by class name."""
     return {CLASS_NAMES[c]: int((y == c).sum()) for c in (1, 0)}
 
 
 def find_constant_features(X: np.ndarray) -> list[int]:
-    """Indices of columns that hold a single value (useless for splitting)."""
+
     return [j for j in range(X.shape[1]) if np.unique(X[:, j]).size == 1]
 
 
 def find_binary_features(X: np.ndarray) -> list[int]:
-    """Indices of columns that hold exactly two distinct values."""
+
     return [j for j in range(X.shape[1]) if np.unique(X[:, j]).size == 2]
 
 
 def separation_scores(X: np.ndarray, y: np.ndarray) -> pd.DataFrame:
-    """Standardized difference in class means for every feature.
 
-    score_j = |mean_good - mean_bad| / pooled standard deviation
-
-    Larger means the two classes sit further apart on that feature. It only
-    looks at means, so it can miss features that split well in other ways.
-    It is used here for exploration, not by the tree.
-    """
     good, bad = X[y == 1], X[y == 0]
     n_g, n_b = len(good), len(bad)
+
     rows = []
+
     for j, name in enumerate(FEATURE_NAMES):
+
         m_g, m_b = good[:, j].mean(), bad[:, j].mean()
         v_g, v_b = good[:, j].var(ddof=1), bad[:, j].var(ddof=1)
         pooled_sd = np.sqrt(((n_g - 1) * v_g + (n_b - 1) * v_b) / (n_g + n_b - 2))
         score = abs(m_g - m_b) / pooled_sd if pooled_sd > 0 else 0.0
         pulse, part = pulse_of(j)
+
         rows.append({"feature": name, "pulse": pulse, "part": part,
                      "mean_good": m_g, "mean_bad": m_b, "separation": score})
     return pd.DataFrame(rows).sort_values("separation", ascending=False)
 
 
-# ---------------------------------------------------------------------------
-# Figures
-# ---------------------------------------------------------------------------
-def plot_class_balance(y: np.ndarray, out: Path) -> None:
-    """Share of good/bad overall and in the two row blocks of the file.
 
-    Shows both the class imbalance and that the file is not shuffled.
-    """
+def plot_class_balance(y: np.ndarray, out: Path) -> None:
+
+
     groups = {
         f"All rows\n(n={len(y)})": y,
         f"Rows 1–{SPLIT_ROW}\n(n={SPLIT_ROW})": y[:SPLIT_ROW],
         f"Rows {SPLIT_ROW + 1}–{len(y)}\n(n={len(y) - SPLIT_ROW})": y[SPLIT_ROW:],
     }
+
     labels = list(groups)
     x = np.arange(len(labels))
     width = 0.36
@@ -137,12 +111,15 @@ def plot_class_balance(y: np.ndarray, out: Path) -> None:
         counts = [int((g == cls).sum()) for g in groups.values()]
         bars = ax.bar(x + offset, shares, width, color=COLOR[cls],
                       label=CLASS_NAMES[cls], zorder=3)
+
+        
         for bar, share, count in zip(bars, shares, counts):
             ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 1.5,
                     f"{share:.0f}%\n({count})", ha="center", va="bottom",
                     fontsize=9, color=INK)
 
     ax.set_xticks(x, labels)
+
     ax.set_ylabel("Share of rows (%)")
     ax.set_ylim(0, 105)
     ax.grid(axis="x", visible=False)
@@ -154,15 +131,12 @@ def plot_class_balance(y: np.ndarray, out: Path) -> None:
 
 
 def plot_pulse_profiles(X: np.ndarray, y: np.ndarray, out: Path) -> None:
-    """Mean value per class at each of the 17 pulses, real and imaginary parts.
 
-    Uses the dataset's structure (17 pulses x 2 parts) instead of treating the
-    34 columns as unrelated numbers.
-    """
     pulses = np.arange(1, N_PULSES + 1)
     fig, axes = plt.subplots(1, 2, figsize=(11, 4), sharey=True)
     for ax, part, start in ((axes[0], "Real part (odd attributes)", 0),
                             (axes[1], "Imaginary part (even attributes)", 1)):
+        
         cols = np.arange(start, X.shape[1], 2)
         for cls in (1, 0):
             means = X[y == cls][:, cols].mean(axis=0)
@@ -181,12 +155,14 @@ def plot_pulse_profiles(X: np.ndarray, y: np.ndarray, out: Path) -> None:
     fig.suptitle("Average signal per pulse, by class", fontweight="bold")
     fig.tight_layout()
     fig.savefig(out, dpi=150)
+
+
     plt.close(fig)
 
 
 def plot_top_feature_histograms(X: np.ndarray, y: np.ndarray,
                                 scores: pd.DataFrame, out: Path) -> None:
-    """Class-wise histograms for the most separating features."""
+
     top = scores.head(N_TOP_FEATURES)
     bins = np.linspace(-1, 1, 21)
     ncols = 3
@@ -205,20 +181,23 @@ def plot_top_feature_histograms(X: np.ndarray, y: np.ndarray,
     axes.flat[0].legend(loc="upper left")
     for ax in axes[:, 0]:
         ax.set_ylabel("Rows")
+
+
     fig.suptitle(f"The {N_TOP_FEATURES} features whose class means differ most",
                  fontweight="bold")
     fig.tight_layout()
     fig.savefig(out, dpi=150)
+
     plt.close(fig)
 
 
 def plot_correlation_heatmap(X: np.ndarray, constant: list[int], out: Path) -> None:
-    """Pearson correlation between features (constant columns left out)."""
+
     keep = [j for j in range(X.shape[1]) if j not in constant]
     corr = np.corrcoef(X[:, keep], rowvar=False)
     names = [FEATURE_NAMES[j] for j in keep]
 
-    # Diverging map: orange (negative) -> neutral gray -> blue (positive).
+
     cmap = LinearSegmentedColormap.from_list(
         "orange_gray_blue", ["#b2440f", "#f2b48f", "#e8e7e3", "#86b6ef", "#184f95"])
 
@@ -236,9 +215,7 @@ def plot_correlation_heatmap(X: np.ndarray, constant: list[int], out: Path) -> N
     plt.close(fig)
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Step 1: explore the Ionosphere data.")
     parser.add_argument("--data", default="ionosphere.data",
@@ -261,7 +238,7 @@ def main() -> None:
     second_block = class_counts(y[SPLIT_ROW:])
     scores = separation_scores(X, y)
 
-    # Highly correlated feature pairs (|r| > 0.7), constant columns excluded.
+
     keep = [j for j in range(p) if j not in constant]
     corr = np.corrcoef(X[:, keep], rowvar=False)
     strong_pairs = []

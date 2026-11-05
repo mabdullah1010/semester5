@@ -1,33 +1,11 @@
-"""
-experiments.py
---------------
-Step 6 of COM 307 Project 3: the experiments behind the write-up.
+# COM 307
+# Muhammad Abdullah
+# Project 3
+# Date: Nov 1st 2026
 
-Everything here uses the code in random_forest.py; nothing new is learned
-from scratch in this file.
 
-  1. Choosing m: 5-fold cross-validation (repeated 3 times) on the TRAINING
-     rows only, for m in 1..34, for both a single tree and a 100-tree forest.
-     The test rows are never used to pick m. Every m within 1 point of the
-     best CV score counts as equally good; among those, the one closest to
-     sqrt(34) (the usual default) is chosen.
-  2. How many trees: test and out-of-bag accuracy as trees are added.
-  3. Single tree vs forest: accuracy over many random seeds.
-  4. Feature importance, split into real and imaginary parts.
-  5. Final model (the chosen m) on the test set, plus a scikit-learn
-     forest with the same settings as a sanity check.
-  6. The original 1989 split: train on rows 1-200, test on rows 201-351.
+#python experiments.py --data ionosphere.data
 
-Outputs:
-  figures/step6_choosing_m.png
-  figures/step6_number_of_trees.png
-  figures/step6_tree_vs_forest.png
-  figures/step6_feature_importance.png
-  results/experiments_summary.txt
-
-Usage:
-  python experiments.py --data ionosphere.data
-"""
 
 import argparse
 import time
@@ -44,22 +22,26 @@ from data_utils import FEATURE_NAMES, load_ionosphere, pulse_of
 from random_forest import (SEED, TEST_FRACTION, RandomForest, accuracy, build_tree,
                            describe_results, predict, stratified_split)
 
-# ---------------------------------------------------------------------------
-# Settings
-# ---------------------------------------------------------------------------
+
+
 M_VALUES = [1, 2, 3, 4, 6, 8, 12, 17, 25, 34]
 N_FOLDS = 5
-N_CV_REPEATS = 3             # repeat the 5-fold CV with different shuffles to reduce noise
-TREES_FOR_M_SWEEP = 100      # forest size while choosing m
-SINGLE_TREES_PER_FOLD = 10   # single trees averaged per fold while choosing m
-MAX_TREES = 300              # longest forest in the number-of-trees experiment
-N_SEEDS_COMPARE = 20         # single trees and forests in the comparison plot
+N_CV_REPEATS = 3             
+TREES_FOR_M_SWEEP = 100      
+SINGLE_TREES_PER_FOLD = 10    
+MAX_TREES = 300               
+N_SEEDS_COMPARE = 20          
+
 
 FIG_DIR = Path("figures")
 RESULTS_DIR = Path("results")
 
+
+
 BLUE, ORANGE = "#2a78d6", "#eb6834"
 INK, INK_MUTED, GRID = "#0b0b0b", "#52514e", "#e4e3df"
+
+
 plt.rcParams.update({
     "figure.facecolor": "white", "axes.facecolor": "white",
     "axes.edgecolor": INK_MUTED, "axes.labelcolor": INK,
@@ -71,61 +53,57 @@ plt.rcParams.update({
 })
 
 
-# ===========================================================================
-# Helpers
-# ===========================================================================
+
 def stratified_folds(y, n_folds, rng):
-    """Split row indices into n_folds groups, each with the same good/bad mix."""
+
     folds = [[] for _ in range(n_folds)]
+
     for label in (0, 1):
+
         rows = np.flatnonzero(y == label)
         rng.shuffle(rows)
+
         for k, chunk in enumerate(np.array_split(rows, n_folds)):
             folds[k].extend(chunk)
     return [np.array(sorted(f)) for f in folds]
 
 
 def cross_validate(X, y, m, rng):
-    """Repeated k-fold CV accuracy for (a) a forest and (b) a single tree, at one m.
 
-    Every m is tested on exactly the same folds, so differences between m
-    values come from m and not from a lucky split.
-
-    Returns two lists of fold accuracies (N_FOLDS * N_CV_REPEATS each):
-    forest, single tree.
-    """
     forest_scores, tree_scores = [], []
     all_folds = []
+
     for repeat in range(N_CV_REPEATS):
         all_folds += stratified_folds(y, N_FOLDS, np.random.default_rng(SEED + repeat))
 
+
     for val in all_folds:
+
         fit = np.setdiff1d(np.arange(len(y)), val)
 
         forest = RandomForest(n_trees=TREES_FOR_M_SWEEP, m=m,
                               seed=int(rng.integers(1_000_000))).fit(X[fit], y[fit])
         forest_scores.append(accuracy(y[val], forest.predict(X[val])))
 
+
         singles = [accuracy(y[val], predict(build_tree(X[fit], y[fit], m, rng), X[val]))
                    for _ in range(SINGLE_TREES_PER_FOLD)]
         tree_scores.append(np.mean(singles))
+
     return forest_scores, tree_scores
 
 
 def accuracy_as_trees_are_added(forest, X_train, y_train, X_test, y_test):
-    """Test and out-of-bag accuracy using only the first k trees, k = 1..T.
 
-    Each tree's predictions are computed once; the vote for the first k
-    trees is then just a running total.
-    """
     k = np.arange(1, len(forest.trees) + 1)[:, None]
 
-    # test accuracy
+
     test_votes = np.array([predict(t, X_test) for t in forest.trees])   # (trees, rows)
     good_share = np.cumsum(test_votes, axis=0) / k
     test_acc = np.mean((good_share >= 0.5) == y_test, axis=1)
 
-    # out-of-bag accuracy: each training row only counts trees that didn't see it
+
+
     train_votes = np.array([predict(t, X_train) for t in forest.trees])
     out_of_bag = ~np.array(forest.in_bag)
     oob_good = np.cumsum(train_votes * out_of_bag, axis=0)
@@ -138,9 +116,7 @@ def accuracy_as_trees_are_added(forest, X_train, y_train, X_test, y_test):
     return test_acc, np.array(oob_acc)
 
 
-# ===========================================================================
-# Figures
-# ===========================================================================
+
 def plot_choosing_m(results, best_m, out):
     fig, ax = plt.subplots(figsize=(8, 4.5))
     for key, color, label in (("forest", BLUE, f"Forest ({TREES_FOR_M_SWEEP} trees)"),
@@ -176,6 +152,7 @@ def plot_number_of_trees(test_acc, oob_acc, m, out):
     ax.plot(k, test_acc * 100, color=BLUE, linewidth=2, label="Test accuracy", zorder=3)
     ax.plot(k, oob_acc * 100, color=ORANGE, linewidth=2, label="Out-of-bag accuracy", zorder=3)
     ax.set_xscale("log")
+
     ticks = [t for t in (1, 3, 10, 30, 100, 300) if t <= len(test_acc)]
     ax.set_xticks(ticks, [str(t) for t in ticks])
     ax.minorticks_off()
@@ -184,6 +161,7 @@ def plot_number_of_trees(test_acc, oob_acc, m, out):
     ax.set_title(f"Adding trees (m = {m})")
     ax.legend(loc="lower right")
     fig.tight_layout()
+
     fig.savefig(out, dpi=150)
     plt.close(fig)
 
@@ -192,8 +170,7 @@ def plot_tree_vs_forest(tree_scores, forest_scores, baseline, out):
     fig, ax = plt.subplots(figsize=(6, 4.5))
     for x, scores, color, label in ((0, tree_scores, ORANGE, "Single random tree"),
                                     (1, forest_scores, BLUE, "Random forest")):
-        # Seeds that give the same accuracy are spread out side by side,
-        # so every dot stays visible.
+
         values = np.round(np.array(scores) * 100, 6)
         xs = np.zeros(len(values))
         for v in np.unique(values):
@@ -210,6 +187,7 @@ def plot_tree_vs_forest(tree_scores, forest_scores, baseline, out):
             fontsize=8, color=INK_MUTED)
     ax.set_xticks([0, 1], ["Single random tree", "Random forest"])
     ax.set_xlim(-0.5, 1.5)
+
     ax.set_ylim(top=97)
     ax.grid(axis="x", visible=False)
     ax.set_ylabel("Test accuracy (%)")
@@ -220,7 +198,7 @@ def plot_tree_vs_forest(tree_scores, forest_scores, baseline, out):
 
 
 def plot_feature_importance(importance, out):
-    order = np.argsort(importance)      # smallest first, so the largest ends up on top
+    order = np.argsort(importance)
     colors = [BLUE if pulse_of(j)[1] == "real" else ORANGE for j in order]
     fig, ax = plt.subplots(figsize=(7, 8))
     ax.barh([FEATURE_NAMES[j] for j in order], importance[order], color=colors,
@@ -232,14 +210,14 @@ def plot_feature_importance(importance, out):
     ax.legend(handles=[Patch(color=BLUE, label="real part (odd A)"),
                        Patch(color=ORANGE, label="imaginary part (even A)")],
               loc="lower right")
+
+    
     fig.tight_layout()
     fig.savefig(out, dpi=150)
     plt.close(fig)
 
 
-# ===========================================================================
-# Main
-# ===========================================================================
+
 def main():
     parser = argparse.ArgumentParser(description="Step 6: experiments.")
     parser.add_argument("--data", default="ionosphere.data")
@@ -263,7 +241,7 @@ def main():
     log("=" * 50)
     log(f"Same split as random_forest.py: {len(train)} train / {len(test)} test rows")
 
-    # ---------------- 1. choosing m ----------------
+
     log("")
     log(f"1. CHOOSING m ({N_CV_REPEATS} x {N_FOLDS}-fold CV on the {len(train)} training rows)")
     log(f"   {'m':>3}   {'forest':>15}   {'single tree':>15}")
@@ -273,10 +251,7 @@ def main():
         results[m] = {"forest": forest_scores, "tree": tree_scores}
         log(f"   {m:>3}   {np.mean(forest_scores):6.1%} ± {np.std(forest_scores):4.1%}"
             f"   {np.mean(tree_scores):6.1%} ± {np.std(tree_scores):4.1%}")
-    # Choosing m: differences of under 1 point are smaller than the fold-to-fold
-    # noise (about +/- 2.5 points), so every m within 1 point of the best CV score
-    # counts as "equally good". Among those, take the one closest to sqrt(34),
-    # the standard default for classification.
+
     top_m = max(M_VALUES, key=lambda m: np.mean(results[m]["forest"]))
     top = np.mean(results[top_m]["forest"])
     close = [m for m in M_VALUES if top - np.mean(results[m]["forest"]) < 0.01]
@@ -286,7 +261,7 @@ def main():
     log(f"   -> chosen m = {best_m} (the one in that group closest to sqrt(34))")
     plot_choosing_m(results, best_m, FIG_DIR / "step6_choosing_m.png")
 
-    # ---------------- 2. number of trees ----------------
+
     log("")
     log(f"2. NUMBER OF TREES (m = {best_m}, up to {MAX_TREES} trees)")
     big_forest = RandomForest(n_trees=MAX_TREES, m=best_m, seed=SEED).fit(X_train, y_train)
@@ -296,7 +271,7 @@ def main():
             log(f"   {k:>3} trees: test {test_acc[k - 1]:.1%}   out-of-bag {oob_acc[k - 1]:.1%}")
     plot_number_of_trees(test_acc, oob_acc, best_m, FIG_DIR / "step6_number_of_trees.png")
 
-    # ---------------- 3. single tree vs forest ----------------
+
     log("")
     log(f"3. SINGLE TREE vs FOREST ({N_SEEDS_COMPARE} seeds each, m = {best_m}, test rows)")
     tree_scores = [accuracy(y_test, predict(build_tree(X_train, y_train, best_m,
@@ -311,7 +286,7 @@ def main():
     plot_tree_vs_forest(tree_scores, forest_scores, y_test.mean(),
                         FIG_DIR / "step6_tree_vs_forest.png")
 
-    # ---------------- 4 & 5. final model ----------------
+
     log("")
     log(f"4. FINAL MODEL: forest of 100 trees, m = {best_m}, on the test rows")
     final = RandomForest(m=best_m, seed=SEED).fit(X_train, y_train)
@@ -334,13 +309,14 @@ def main():
     except ImportError:
         log("  scikit-learn not installed; skipped the sanity check.")
 
-    # ---------------- 6. the 1989 split ----------------
+    #  1989 split
     log("")
     log("5. ORIGINAL 1989 SPLIT (train rows 1-200, test rows 201-351)")
     old_forest = RandomForest(m=best_m, seed=SEED).fit(X[:200], y[:200])
     log(describe_results(y[200:], old_forest.predict(X[200:])))
     log("  published on this split: nearest neighbor 92.1%, C4 94.0%,")
     log("  linear perceptron 90.7%, backprop ~96%, IB3 96.7%")
+
 
     log("")
     log(f"Finished in {time.time() - start:.0f} s")
