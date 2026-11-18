@@ -62,8 +62,19 @@
     ;else
        (+ (* (car lst) (car w)) (get-activations (cdr lst) (cdr w))))))
 
-
-
 (define g
   (lambda (x)
-    (/ 1 (+ 1 (exp (- x))))))
+    (if (> x 0) 1 0)))
+
+
+;; Part3: Discuss how NNs can be used to help us in our search problem?
+
+;; The main advantage of using neural networks is that we can use back propagation from previously recorded trajectories 
+;; or reinforcement learning to tune weights over time and continuously improve the bot’s navigation and performance 
+;; without any manual tweaks. A neural network can use the 4 immediate neighbor values to output the 
+;; next action (up, down,left, right). The action depends on the activity of the neural network. 
+
+;; The tiles in the grid environment have attributes like obstacle, height (low/medium/high) and 
+;; stability (True/False), a neural network can take surrounding inputs and convert into a 
+;; passability score between 0 and 1. This will help to generalise across unseen scenarios 
+;; which has been quite a challenge for other methods. 

@@ -4,7 +4,7 @@
 ;; NN0.ss
 
 
-;; Modified AND (trues ~ 0.993, falses ~ 0.007)
+;;  true around 0.993, false around 0.007
 (define threshold-weights '(((15 10 10))))
 
 ;; OR
@@ -13,6 +13,7 @@
 ;; XOR
 ;(define threshold-weights '(((5 10 -10) (5 -10 10))
 ;                           ((5 10 10))))
+
 
 (define NN
   (lambda (lst)
