@@ -1,0 +1,30 @@
+iemocap_root: /home/abdullah/Connecticut College/github/semester5/Machine Learning/IEMOCAP_full_release   # read-only
+project_root: /home/abdullah/Connecticut College/github/semester5/Machine Learning/IEMOCAP_full_release
+seed: 1337
+seeds: [1337, 2024, 7]
+
+classes: [neu, hap, sad, ang]        # hap includes exc
+merge: {exc: hap}
+
+overlap:
+  padding_sec: 0.10
+  padding_sensitivity: [0.0, 0.10, 0.25]
+  trim_min_remaining_sec: 1.0
+  crosstalk_max_detected_sec: 0.20
+  timing_tolerance_sec: 0.05
+
+primary_policy_rule:
+  min_class_retention: 0.60
+  min_class_count: 300
+
+features:
+  egemaps: eGeMAPSv02 Functionals
+  wavlm_model: microsoft/wavlm-base-plus
+
+complexity_budget:
+  lr_max_nonzero_features: 20
+  tree_max_leaves: 16
+
+bootstrap:
+  n_resamples: 2000
+  ci: 0.95
