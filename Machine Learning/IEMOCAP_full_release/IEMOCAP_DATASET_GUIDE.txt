@@ -1,0 +1,1071 @@
+==============================================================================
+ IEMOCAP DATASET - COMPLETE GUIDE, FILE FORMATS AND FILE TREE
+==============================================================================
+ IEMOCAP = Interactive Emotional Dyadic Motion Capture database
+ USC SAIL lab. Citation: Busso et al., "IEMOCAP: Interactive emotional dyadic
+ motion capture database", Language Resources and Evaluation 42(4):335-359, 2008.
+
+------------------------------------------------------------------------------
+ 1. OVERVIEW
+------------------------------------------------------------------------------
+ - 10 actors (5 female, 5 male), 5 sessions; each session = one male/female pair.
+ - ~11.6 hours of English dyadic (two-person) conversation.
+ - 151 dialogs (recordings), 10,039 utterances. Disk size ~29 GB.
+ - Two kinds of dialog:
+     impro  = improvised acting of an emotional scenario
+     script = performance of a theatrical script
+ - Modalities: audio, video, motion capture (face, head, hands), transcripts,
+   forced alignment (phoneme/syllable/word timing), emotion annotations.
+
+   Session | Dialogs | Utterances
+   --------+---------+-----------
+      1    |   28    |   1819
+      2    |   30    |   1811
+      3    |   32    |   2136
+      4    |   30    |   2103
+      5    |   31    |   2170
+
+ Only ONE actor per recording wears motion-capture markers; both actors are
+ recorded by microphones and cameras. So MoCap exists for one actor, audio and
+ video for both.
+
+------------------------------------------------------------------------------
+ 2. NAMING CONVENTIONS
+------------------------------------------------------------------------------
+ Dialog name:      Ses01F_impro01
+     Ses01   = session 1
+     F       = the FEMALE actor wears the MoCap markers (M = male wears them)
+     impro01 = improvisation #1  (others: script01_1, script01_2, script02_1 ...)
+ Utterance name:   Ses01F_impro01_M003
+     ...M003 = 4th utterance (counting from 000) spoken by the MALE actor.
+     The letter before the number is the SPEAKER, not the marker wearer.
+     Female (F) and male (M) utterances are numbered separately.
+ Annotator IDs in label files:
+     C-E2, C-E3, C-E4 = categorical labels from external evaluators 2, 3, 4
+     A-E3, A-E4       = attribute (valence/activation/dominance) from evaluators
+     C-F1 / A-F1      = self-evaluation by the female actor (C-M1/A-M1 = male)
+ Dialog-name quirks:
+     Session 1 has impro01-07 (others have 01-08).
+     Ses03M has split dialogs: impro05a, impro05b, impro08a, impro08b.
+     Session 5 has an extra file Ses05M_script01_1b.
+     Folders lab/Ses01_M/ contain files named Ses01F_... (named after the
+     dialog, not the speaker) - the folder says which speaker the times are for.
+
+------------------------------------------------------------------------------
+ 3. TWO FORMATS OF THE SAME DATA
+------------------------------------------------------------------------------
+ SessionN/dialog/     whole recordings, one file per dialog
+ SessionN/sentences/  the same recordings cut into utterances: one sub-folder
+                      per dialog, one file per utterance
+ Utterance start/end times are in dialog/lab/ and dialog/EmoEvaluation/.
+
+------------------------------------------------------------------------------
+ 4. FOLDER-BY-FOLDER DESCRIPTION
+------------------------------------------------------------------------------
+ ROOT
+   README.txt              official description from USC
+   README.txt~             editor backup copy of README (ignore)
+   Documentation/
+     FIVE_face_markers2.png   picture of the facial marker layout
+     phonemes.txt             phoneme inventory with example words
+     corpus.dic               ~246,812-line pronunciation dictionary
+     timeinfo.txt             time-unit note for alignment files
+     HumaineInfo.txt          metadata (modalities, emotions, size, language)
+
+ SessionN/dialog/
+   wav/            full-dialog audio, one .wav per dialog
+   avi/DivX/       full-dialog video, one .avi per dialog
+   transcriptions/ text of each dialog with utterance timings
+   lab/Ses0N_F/    utterance timings (seconds) for the female speaker
+   lab/Ses0N_M/    utterance timings (seconds) for the male speaker
+   EmoEvaluation/  emotion labels:
+       SesXXY_name.txt        MAIN summary file (ground truth + all raters)
+       Categorical/           per-rater category labels (.txt) + Anvil (.anvil)
+       Attribute/             per-rater valence/activation/dominance (.txt/.anvil)
+       Self-evaluation/       the actors' own ratings of themselves
+   MOCAP_rotated/  face markers, rotated/translated so nose marker = (0,0,0)
+   MOCAP_head/     head rotation (pitch, roll, yaw) + translation (x, y, z)
+   MOCAP_hand/     hand markers (left/right)
+
+ SessionN/sentences/
+   wav/<dialog>/<utterance>.wav            utterance audio
+   ForcedAlignment/<dialog>/<utt>.phseg    phoneme-level timing
+                            <utt>.wdseg    word-level timing
+                            <utt>.syseg    syllable-level timing
+                            <utt>.stseg    alignment-model/stress info
+   MOCAP_rotated/<dialog>/<utt>.txt        face MoCap for that utterance
+   MOCAP_head/<dialog>/<utt>.txt           head MoCap for that utterance
+   MOCAP_hand/<dialog>/<utt>.txt           hand MoCap for that utterance
+
+ Junk / extra files (ignore):
+   ._*  (macOS resource-fork files, ~222 bytes each, one per real file),
+   .DS_Store, Thumbs.db, README.txt~, and 5 undocumented .pk files
+   (e.g. Session2/dialog/wav/Ses02F_script01_1.pk, ~4 KB binary).
+   ALWAYS filter out names beginning with "._" when globbing.
+
+------------------------------------------------------------------------------
+ 5. WHAT EACH FILE ACTUALLY LOOKS LIKE (real excerpts, Session1)
+------------------------------------------------------------------------------
+
+ 5.1 Audio - dialog/wav/Ses01F_impro01.wav
+     RIFF/WAV, 16 kHz, 16-bit, STEREO (2 channels), 133.6 s, 8.5 MB.
+     Utterance wav (sentences/wav/Ses01F_impro01/Ses01F_impro01_F000.wav):
+     16 kHz, 16-bit, MONO, 1.95 s, ~62 KB.
+
+ 5.2 Video - dialog/avi/DivX/Ses01F_impro01.avi
+     AVI, DivX 5 video, 720x480, 29.97 fps, PCM stereo 22.05 kHz audio, ~21 MB.
+     Shows both actors; only available at dialog level (no per-utterance video).
+
+ 5.3 Transcriptions - dialog/transcriptions/Ses01F_impro01.txt
+     Format:  UtteranceID [start-end seconds]: text
+       Ses01F_impro01_F000 [006.2901-008.2357]: Excuse me.
+       Ses01F_impro01_M000 [007.5712-010.4750]: Do you have your forms?
+       Ses01F_impro01_F001 [010.0100-011.3925]: Yeah.
+       Ses01F_impro01_M001 [010.9266-014.6649]: Let me see them.
+     Both speakers interleaved by time; utterances can overlap in time.
+
+ 5.4 Lab (timing) - dialog/lab/Ses01_F/Ses01F_impro01.lab
+     Format:  start_sec end_sec label   ("d" = gap / non-utterance)
+       0.0000000 6.2901203 d
+       6.2901203 8.2356934 Ses01F_impro01_F000
+       10.0100000 11.3925000 Ses01F_impro01_F001
+     (Ses01_M version lists the male utterances: M000 7.5712-10.4750 etc.)
+
+ 5.5 Main emotion file - dialog/EmoEvaluation/Ses01F_impro01.txt
+     Header line, then one block per utterance, blank line between blocks:
+
+       % [START_TIME - END_TIME] TURN_NAME EMOTION [V, A, D]
+
+       [19.2900 - 20.7875]	Ses01F_impro01_F003	xxx	[2.5000, 3.0000, 3.0000]
+       C-E2:	Neutral;	()
+       C-E3:	Frustration;	()
+       C-E4:	Anger;	()
+       C-F1:	Frustration; Anger;	()
+       A-E3:	val 3; act 3; dom  3;	()
+       A-E4:	val 2; act 3; dom  3;	(accusing)
+       A-F1:	val 2; act 3; dom  3;	()
+
+     Summary line: [start - end]  utterance name  ground-truth label
+     [mean valence, mean activation, mean dominance]. Ground truth = majority
+     of the external categorical raters; "xxx" = no majority (here: neutral,
+     frustration, anger all different). Dimensions are scored 1-5.
+     Text in () is a free-text rater comment. A rater may list several
+     categories separated by ";" (self-evaluation often does).
+     Label codes: ang, hap, sad, neu, fru, exc, fea, sur, dis, oth, xxx.
+     Counts in this copy (10,039 utterances): xxx 2507, fru 1849, neu 1708,
+     ang 1103, sad 1084, exc 1041, hap 595, sur 107, fea 40, oth 3, dis 2.
+
+ 5.6 Per-rater categorical - EmoEvaluation/Categorical/Ses01F_impro01_e3_cat.txt
+       Ses01F_impro01_F000 :Neutral state; ()
+       Ses01F_impro01_F003 :Frustration; ()
+     (Files for the evaluators present: e2, e3, e4; one line per utterance.
+      Utterances with several labels appear on several lines.)
+     The .anvil twin is the raw annotation from the Anvil video-annotation
+     tool: XML, e.g.
+       <video src="C:\Mocap\Videos\Ses01F_impro01.avi" />
+       <track name="Female.Emotion" type="primary">
+         <el index="0" start="6.485" end="7.9625">
+           <attribute name="Neutral state">true</attribute>
+     Note: Anvil segment times can differ slightly from the utterance times.
+
+ 5.7 Per-rater attributes - EmoEvaluation/Attribute/Ses01F_impro01_e3_atr.txt
+       Ses01F_impro01_F000 :act 4; :val 3; :dom 2; ()
+       Ses01F_impro01_F000 :act 3; :val 4; :dom 3; (mildly aggravated ...)  [e4]
+     act = activation/arousal (calm..excited), val = valence (neg..pos),
+     dom = dominance (passive..aggressive); scale 1-5.
+
+ 5.8 Self-evaluation - EmoEvaluation/Self-evaluation/Ses01F_impro01_f1_atr.txt
+     Same line formats as above (_cat.txt / _atr.txt / .anvil), but the rating
+     comes from the actor who spoke. f1 = female actor, m1 = male actor.
+
+ 5.9 MoCap face - dialog/MOCAP_rotated/Ses01F_impro01.txt
+     13,837 lines, ~21 MB (about 120 frames/s). Two header lines then data.
+       line 1: Frame# Time CH1 CH2 CH3 FH1 FH2 FH3 LC1 ... LBM0 ... Mou1..Mou8 LHD RHD
+       line 2: X01 Y01 Z01 X02 Y02 Z02 ... Z55
+       data:   1 0.00834 -28.03277 32.01503 -53.26572 -0.24866 22.38171 ...
+     = frame number, time in seconds, then 55 markers x (X,Y,Z) = 165 values.
+     Marker groups (see Documentation/FIVE_face_markers2.png): CH chin,
+     FH forehead, LC/RC left/right cheek, LLID/RLID eyelids, MH, nose markers
+     (MNOSE, LNSTRL, TNOSE, RNSTRL), LBM/RBM brow-mid, LBRO/RBRO brows,
+     Mou1-8 mouth, LHD/RHD. Units are millimetres (approx.).
+     Sentence-level file (sentences/MOCAP_rotated/.../Ses01F_impro01_F000.txt)
+     has the same columns, only the frames of that utterance.
+
+ 5.10 MoCap head - dialog/MOCAP_head/Ses01F_impro01.txt
+       Frame# Time pitch roll yaw tra_x tra_y tra_z
+       R01 R02 R03 T01 T02 T03
+       1 0.00834 -7.98901 -3.79535 -16.42346 -52.87054 -130.52053 -19.19184
+     = frame, time, 3 rotation angles (degrees), 3 translations (x, y, z).
+     (Sentence-level files use slightly different 2nd-line names: Ang01.. Trx..)
+
+ 5.11 MoCap hand - dialog/MOCAP_hand/Ses01F_impro01.txt
+       Frame# Time LH1 LH2 LH3 RH1 RH2 RH3
+       X54 Y54 Z54 X55 Y55 Z55 X56 Y56 Z56 X57 Y57 Z57 X58 Y58 Z58 X59 Y59 Z59
+       1.000000 0.008340 NaN NaN NaN 153.364110 -95.484950 -51.466960 245.09 ...
+     = frame, time, then 6 hand markers (3 left, 3 right) x XYZ.
+     NaN = marker not visible (occluded) in that frame - expect many NaNs.
+
+ 5.12 Forced alignment (sentences/ForcedAlignment/Ses01F_impro01/)
+     Times are frames of 10 ms (seconds = (frame+2)/100, per timeinfo.txt).
+     Ses01F_impro01_F000.phseg  (phonemes, with left/right context):
+         SFrm  EFrm   SegAScr Phone
+            0     7    287440 SIL
+           45    47     32274 IX SIL K b
+           48    50    -17465 K IX S i
+           51    58    200133 S K K i
+     Ses01F_impro01_F000.wdseg  (words):
+         SFrm  EFrm    SegAScr Word
+            0     7     287440 <s>
+           45    79     186607 EXCUSE(8)
+           80   105     646000 ME(2)
+          106   178    3573065 <sil>
+          179   192     918530 </s>
+         Total score:     7457732
+       (the number in parentheses is the pronunciation variant)
+     Ses01F_impro01_F000.syseg  (syllables):
+           45    50 IX_K
+           51    79 S_K_Y_UW_Z
+           80   105 M_IY
+     Ses01F_impro01_F000.stseg  (alignment/stress model header, 3-4 lines):
+         0.1
+         +BREATHING+ +GARBAGE+ ... AA AE AH ... ZH besiu
+         CI.8 LC.8 RC.8 POS.3(HI)-ST.5(LO) SCR(32)
+
+ 5.13 Documentation files
+     phonemes.txt:  AA   [BOB B AA B]      (phoneme + example word/pronunciation)
+                    ... SIL, +LAUGHTER+, +LIPSMACK+, +GARBAGE+, +BREATHING+
+     corpus.dic:    HENDRY HH EH N D R IY
+                    HENDRYX(2) HH EH N D R IH K S
+     timeinfo.txt:  "time is measured in 10ms ... t2=(t+2)/100"
+
+------------------------------------------------------------------------------
+ 6. HOW TO USE THE DATA
+------------------------------------------------------------------------------
+ Speech emotion recognition (most common)
+   Input: sentences/wav/<dialog>/<utt>.wav.  Label: 3rd column of the summary
+   line in EmoEvaluation/<dialog>.txt.  Typical 4-class benchmark: neutral,
+   happy+excited (merged), sad, angry = ~5,531 utterances; drop other labels
+   and "xxx". Evaluate leave-one-session-out (5 folds) so speakers never appear
+   in both train and test.
+ Dimensional emotion (valence/arousal/dominance regression)
+   Target: the [V, A, D] numbers in the summary line.
+ Text / conversational emotion recognition
+   Text: transcriptions/*.txt (per-utterance text, in turn order = context).
+ Multimodal (audio + text + MoCap/video)
+   Join by utterance name; cut MoCap per utterance from sentences/MOCAP_*;
+   cut video with the .lab or transcription times.
+ Prosody / phonetics / TTS
+   ForcedAlignment gives phoneme, syllable, word boundaries.
+ Gesture / facial analysis / animation
+   MOCAP_rotated (face), MOCAP_head, MOCAP_hand vs. speech and emotion.
+ Annotation-quality studies
+   Per-rater files + self-evaluation give disagreement and label noise.
+
+ Python: parse the main labels
+   import re, glob
+   rows = []
+   for f in glob.glob('Session*/dialog/EmoEvaluation/Ses*.txt'):
+       for line in open(f):
+           m = re.match(r'\[(\S+) - (\S+)\]\t(\S+)\t(\S+)\t\[(.+)\]', line)
+           if m: rows.append((m[3], m[4], *map(float, m[5].split(','))))
+ Utterance audio path for Ses01F_impro01_F000:
+   Session1/sentences/wav/Ses01F_impro01/Ses01F_impro01_F000.wav
+ Load MoCap: numpy.loadtxt(path, skiprows=2)  (use pandas for the hand files
+   because of NaN, or numpy.genfromtxt).
+
+ Caveats
+   - MoCap is of the marker-wearing actor only; for the other actor's
+     utterances it shows the listener.
+   - Utterances of the two speakers can overlap in time.
+   - ~25% of utterances are "xxx" (no majority label).
+   - Class imbalance; very few fear/disgust/other.
+   - Filter "._" files before counting or iterating.
+
+------------------------------------------------------------------------------
+ 7. FILE TREE
+------------------------------------------------------------------------------
+ Session1 is shown in full (long file lists abbreviated with counts).
+ Sessions 2-5 have the identical layout. "._*" junk files are omitted.
+
+IEMOCAP_full_release/
+├── Documentation/
+│   ├── FIVE_face_markers2.png
+│   ├── HumaineInfo.txt
+│   ├── corpus.dic
+│   ├── phonemes.txt
+│   └── timeinfo.txt
+├── README.txt
+├── Session1/
+│   ├── dialog/
+│   │   ├── EmoEvaluation/
+│   │   │   ├── Attribute/
+│   │   │   │   ├── Ses01F_impro01_e3.anvil
+│   │   │   │   ├── Ses01F_impro01_e3_atr.txt
+│   │   │   │   ├── Ses01F_impro01_e4.anvil
+│   │   │   │   └── ... (120 files total: 60 .anvil, 60 .txt)
+│   │   │   ├── Categorical/
+│   │   │   │   ├── Ses01F_impro01_e2.anvil
+│   │   │   │   ├── Ses01F_impro01_e2_cat.txt
+│   │   │   │   ├── Ses01F_impro01_e3.anvil
+│   │   │   │   └── ... (168 files total: 84 .anvil, 84 .txt)
+│   │   │   ├── Self-evaluation/
+│   │   │   │   ├── Ses01F_impro01_f1.anvil
+│   │   │   │   ├── Ses01F_impro01_f1_atr.txt
+│   │   │   │   ├── Ses01F_impro01_f1_cat.txt
+│   │   │   │   └── ... (84 files total: 28 .anvil, 56 .txt)
+│   │   │   ├── Ses01F_impro01.txt
+│   │   │   ├── Ses01F_impro02.txt
+│   │   │   ├── Ses01F_impro03.txt
+│   │   │   └── ... (28 files total: 28 .txt)
+│   │   ├── MOCAP_hand/
+│   │   │   ├── Ses01F_impro01.txt
+│   │   │   ├── Ses01F_impro02.txt
+│   │   │   ├── Ses01F_impro03.txt
+│   │   │   └── ... (28 files total: 28 .txt)
+│   │   ├── MOCAP_head/
+│   │   │   ├── Ses01F_impro01.txt
+│   │   │   ├── Ses01F_impro02.txt
+│   │   │   ├── Ses01F_impro03.txt
+│   │   │   └── ... (28 files total: 28 .txt)
+│   │   ├── MOCAP_rotated/
+│   │   │   ├── Ses01F_impro01.txt
+│   │   │   ├── Ses01F_impro02.txt
+│   │   │   ├── Ses01F_impro03.txt
+│   │   │   └── ... (28 files total: 28 .txt)
+│   │   ├── avi/
+│   │   │   └── DivX/
+│   │   │       ├── Ses01F_impro01.avi
+│   │   │       ├── Ses01F_impro02.avi
+│   │   │       ├── Ses01F_impro03.avi
+│   │   │       └── ... (28 files total: 28 .avi)
+│   │   ├── lab/
+│   │   │   ├── Ses01_F/
+│   │   │   │   ├── Ses01F_impro01.lab
+│   │   │   │   ├── Ses01F_impro02.lab
+│   │   │   │   ├── Ses01F_impro03.lab
+│   │   │   │   └── ... (28 files total: 28 .lab)
+│   │   │   └── Ses01_M/
+│   │   │       ├── Ses01F_impro01.lab
+│   │   │       ├── Ses01F_impro02.lab
+│   │   │       ├── Ses01F_impro03.lab
+│   │   │       └── ... (28 files total: 28 .lab)
+│   │   ├── transcriptions/
+│   │   │   ├── Ses01F_impro01.txt
+│   │   │   ├── Ses01F_impro02.txt
+│   │   │   ├── Ses01F_impro03.txt
+│   │   │   └── ... (28 files total: 28 .txt)
+│   │   └── wav/
+│   │       ├── Ses01F_impro01.wav
+│   │       ├── Ses01F_impro02.wav
+│   │       ├── Ses01F_impro03.wav
+│   │       └── ... (28 files total: 28 .wav)
+│   └── sentences/
+│       ├── ForcedAlignment/
+│       │   ├── Ses01F_impro01/
+│       │   │   ├── Ses01F_impro01_F000.phseg
+│       │   │   ├── Ses01F_impro01_F000.stseg
+│       │   │   ├── Ses01F_impro01_F000.syseg
+│       │   │   └── ... (120 files total: 30 .phseg, 30 .stseg, 30 .syseg, 30 .wdseg)
+│       │   ├── Ses01F_impro02/
+│       │   │   ├── Ses01F_impro02_F000.phseg
+│       │   │   ├── Ses01F_impro02_F000.stseg
+│       │   │   ├── Ses01F_impro02_F000.syseg
+│       │   │   └── ... (152 files total: 38 .phseg, 38 .stseg, 38 .syseg, 38 .wdseg)
+│       │   ├── Ses01F_impro03/
+│       │   │   ├── Ses01F_impro03_F000.phseg
+│       │   │   ├── Ses01F_impro03_F000.stseg
+│       │   │   ├── Ses01F_impro03_F000.syseg
+│       │   │   └── ... (208 files total: 52 .phseg, 52 .stseg, 52 .syseg, 52 .wdseg)
+│       │   ├── Ses01F_impro04/
+│       │   │   ├── Ses01F_impro04_F000.phseg
+│       │   │   ├── Ses01F_impro04_F000.stseg
+│       │   │   ├── Ses01F_impro04_F000.syseg
+│       │   │   └── ... (284 files total: 71 .phseg, 71 .stseg, 71 .syseg, 71 .wdseg)
+│       │   ├── Ses01F_impro05/
+│       │   │   ├── Ses01F_impro05_F000.phseg
+│       │   │   ├── Ses01F_impro05_F000.stseg
+│       │   │   ├── Ses01F_impro05_F000.syseg
+│       │   │   └── ... (268 files total: 67 .phseg, 67 .stseg, 67 .syseg, 67 .wdseg)
+│       │   ├── Ses01F_impro06/
+│       │   │   ├── Ses01F_impro06_F000.phseg
+│       │   │   ├── Ses01F_impro06_F000.stseg
+│       │   │   ├── Ses01F_impro06_F000.syseg
+│       │   │   └── ... (188 files total: 47 .phseg, 47 .stseg, 47 .syseg, 47 .wdseg)
+│       │   ├── Ses01F_impro07/
+│       │   │   ├── Ses01F_impro07_F000.phseg
+│       │   │   ├── Ses01F_impro07_F000.stseg
+│       │   │   ├── Ses01F_impro07_F000.syseg
+│       │   │   └── ... (148 files total: 37 .phseg, 37 .stseg, 37 .syseg, 37 .wdseg)
+│       │   ├── Ses01F_script01_1/
+│       │   │   ├── Ses01F_script01_1_F000.phseg
+│       │   │   ├── Ses01F_script01_1_F000.stseg
+│       │   │   ├── Ses01F_script01_1_F000.syseg
+│       │   │   └── ... (356 files total: 89 .phseg, 89 .stseg, 89 .syseg, 89 .wdseg)
+│       │   ├── Ses01F_script01_2/
+│       │   │   ├── Ses01F_script01_2_F000.phseg
+│       │   │   ├── Ses01F_script01_2_F000.stseg
+│       │   │   ├── Ses01F_script01_2_F000.syseg
+│       │   │   └── ... (132 files total: 33 .phseg, 33 .stseg, 33 .syseg, 33 .wdseg)
+│       │   ├── Ses01F_script01_3/
+│       │   │   ├── Ses01F_script01_3_F000.phseg
+│       │   │   ├── Ses01F_script01_3_F000.stseg
+│       │   │   ├── Ses01F_script01_3_F000.syseg
+│       │   │   └── ... (300 files total: 75 .phseg, 75 .stseg, 75 .syseg, 75 .wdseg)
+│       │   ├── Ses01F_script02_1/
+│       │   │   ├── Ses01F_script02_1_F000.phseg
+│       │   │   ├── Ses01F_script02_1_F000.stseg
+│       │   │   ├── Ses01F_script02_1_F000.syseg
+│       │   │   └── ... (284 files total: 71 .phseg, 71 .stseg, 71 .syseg, 71 .wdseg)
+│       │   ├── Ses01F_script02_2/
+│       │   │   ├── Ses01F_script02_2_F000.phseg
+│       │   │   ├── Ses01F_script02_2_F000.stseg
+│       │   │   ├── Ses01F_script02_2_F000.syseg
+│       │   │   └── ... (392 files total: 98 .phseg, 98 .stseg, 98 .syseg, 98 .wdseg)
+│       │   ├── Ses01F_script03_1/
+│       │   │   ├── Ses01F_script03_1_F000.phseg
+│       │   │   ├── Ses01F_script03_1_F000.stseg
+│       │   │   ├── Ses01F_script03_1_F000.syseg
+│       │   │   └── ... (284 files total: 71 .phseg, 71 .stseg, 71 .syseg, 71 .wdseg)
+│       │   ├── Ses01F_script03_2/
+│       │   │   ├── Ses01F_script03_2_F000.phseg
+│       │   │   ├── Ses01F_script03_2_F000.stseg
+│       │   │   ├── Ses01F_script03_2_F000.syseg
+│       │   │   └── ... (328 files total: 82 .phseg, 82 .stseg, 82 .syseg, 82 .wdseg)
+│       │   ├── Ses01M_impro01/
+│       │   │   ├── Ses01M_impro01_F000.phseg
+│       │   │   ├── Ses01M_impro01_F000.stseg
+│       │   │   ├── Ses01M_impro01_F000.syseg
+│       │   │   └── ... (260 files total: 65 .phseg, 65 .stseg, 65 .syseg, 65 .wdseg)
+│       │   ├── Ses01M_impro02/
+│       │   │   ├── Ses01M_impro02_F000.phseg
+│       │   │   ├── Ses01M_impro02_F000.stseg
+│       │   │   ├── Ses01M_impro02_F000.syseg
+│       │   │   └── ... (192 files total: 48 .phseg, 48 .stseg, 48 .syseg, 48 .wdseg)
+│       │   ├── Ses01M_impro03/
+│       │   │   ├── Ses01M_impro03_F000.phseg
+│       │   │   ├── Ses01M_impro03_F000.stseg
+│       │   │   ├── Ses01M_impro03_F000.syseg
+│       │   │   └── ... (212 files total: 53 .phseg, 53 .stseg, 53 .syseg, 53 .wdseg)
+│       │   ├── Ses01M_impro04/
+│       │   │   ├── Ses01M_impro04_F000.phseg
+│       │   │   ├── Ses01M_impro04_F000.stseg
+│       │   │   ├── Ses01M_impro04_F000.syseg
+│       │   │   └── ... (208 files total: 52 .phseg, 52 .stseg, 52 .syseg, 52 .wdseg)
+│       │   ├── Ses01M_impro05/
+│       │   │   ├── Ses01M_impro05_F000.phseg
+│       │   │   ├── Ses01M_impro05_F000.stseg
+│       │   │   ├── Ses01M_impro05_F000.syseg
+│       │   │   └── ... (280 files total: 70 .phseg, 70 .stseg, 70 .syseg, 70 .wdseg)
+│       │   ├── Ses01M_impro06/
+│       │   │   ├── Ses01M_impro06_F000.phseg
+│       │   │   ├── Ses01M_impro06_F000.stseg
+│       │   │   ├── Ses01M_impro06_F000.syseg
+│       │   │   └── ... (240 files total: 60 .phseg, 60 .stseg, 60 .syseg, 60 .wdseg)
+│       │   ├── Ses01M_impro07/
+│       │   │   ├── Ses01M_impro07_F000.phseg
+│       │   │   ├── Ses01M_impro07_F000.stseg
+│       │   │   ├── Ses01M_impro07_F000.syseg
+│       │   │   └── ... (276 files total: 69 .phseg, 69 .stseg, 69 .syseg, 69 .wdseg)
+│       │   ├── Ses01M_script01_1/
+│       │   │   ├── Ses01M_script01_1_F000.phseg
+│       │   │   ├── Ses01M_script01_1_F000.stseg
+│       │   │   ├── Ses01M_script01_1_F000.syseg
+│       │   │   └── ... (348 files total: 87 .phseg, 87 .stseg, 87 .syseg, 87 .wdseg)
+│       │   ├── Ses01M_script01_2/
+│       │   │   ├── Ses01M_script01_2_F000.phseg
+│       │   │   ├── Ses01M_script01_2_F000.stseg
+│       │   │   ├── Ses01M_script01_2_F000.syseg
+│       │   │   └── ... (132 files total: 33 .phseg, 33 .stseg, 33 .syseg, 33 .wdseg)
+│       │   ├── Ses01M_script01_3/
+│       │   │   ├── Ses01M_script01_3_F000.phseg
+│       │   │   ├── Ses01M_script01_3_F000.stseg
+│       │   │   ├── Ses01M_script01_3_F000.syseg
+│       │   │   └── ... (300 files total: 75 .phseg, 75 .stseg, 75 .syseg, 75 .wdseg)
+│       │   ├── Ses01M_script02_1/
+│       │   │   ├── Ses01M_script02_1_F000.phseg
+│       │   │   ├── Ses01M_script02_1_F000.stseg
+│       │   │   ├── Ses01M_script02_1_F000.syseg
+│       │   │   └── ... (288 files total: 72 .phseg, 72 .stseg, 72 .syseg, 72 .wdseg)
+│       │   ├── Ses01M_script02_2/
+│       │   │   ├── Ses01M_script02_2_F000.phseg
+│       │   │   ├── Ses01M_script02_2_F000.stseg
+│       │   │   ├── Ses01M_script02_2_F000.syseg
+│       │   │   └── ... (412 files total: 103 .phseg, 103 .stseg, 103 .syseg, 103 .wdseg)
+│       │   ├── Ses01M_script03_1/
+│       │   │   ├── Ses01M_script03_1_F000.phseg
+│       │   │   ├── Ses01M_script03_1_F000.stseg
+│       │   │   ├── Ses01M_script03_1_F000.syseg
+│       │   │   └── ... (340 files total: 85 .phseg, 85 .stseg, 85 .syseg, 85 .wdseg)
+│       │   └── Ses01M_script03_2/
+│       │       ├── Ses01M_script03_2_F000.phseg
+│       │       ├── Ses01M_script03_2_F000.stseg
+│       │       ├── Ses01M_script03_2_F000.syseg
+│       │       └── ... (344 files total: 86 .phseg, 86 .stseg, 86 .syseg, 86 .wdseg)
+│       ├── MOCAP_hand/
+│       │   ├── Ses01F_impro01/
+│       │   │   ├── Ses01F_impro01_F000.txt
+│       │   │   ├── Ses01F_impro01_F001.txt
+│       │   │   ├── Ses01F_impro01_F002.txt
+│       │   │   └── ... (30 files total: 30 .txt)
+│       │   ├── Ses01F_impro02/
+│       │   │   ├── Ses01F_impro02_F000.txt
+│       │   │   ├── Ses01F_impro02_F001.txt
+│       │   │   ├── Ses01F_impro02_F002.txt
+│       │   │   └── ... (38 files total: 38 .txt)
+│       │   ├── Ses01F_impro03/
+│       │   │   ├── Ses01F_impro03_F000.txt
+│       │   │   ├── Ses01F_impro03_F001.txt
+│       │   │   ├── Ses01F_impro03_F002.txt
+│       │   │   └── ... (52 files total: 52 .txt)
+│       │   ├── Ses01F_impro04/
+│       │   │   ├── Ses01F_impro04_F000.txt
+│       │   │   ├── Ses01F_impro04_F001.txt
+│       │   │   ├── Ses01F_impro04_F002.txt
+│       │   │   └── ... (71 files total: 71 .txt)
+│       │   ├── Ses01F_impro05/
+│       │   │   ├── Ses01F_impro05_F000.txt
+│       │   │   ├── Ses01F_impro05_F001.txt
+│       │   │   ├── Ses01F_impro05_F002.txt
+│       │   │   └── ... (67 files total: 67 .txt)
+│       │   ├── Ses01F_impro06/
+│       │   │   ├── Ses01F_impro06_F000.txt
+│       │   │   ├── Ses01F_impro06_F001.txt
+│       │   │   ├── Ses01F_impro06_F002.txt
+│       │   │   └── ... (47 files total: 47 .txt)
+│       │   ├── Ses01F_impro07/
+│       │   │   ├── Ses01F_impro07_F000.txt
+│       │   │   ├── Ses01F_impro07_F001.txt
+│       │   │   ├── Ses01F_impro07_F002.txt
+│       │   │   └── ... (38 files total: 38 .txt)
+│       │   ├── Ses01F_script01_1/
+│       │   │   ├── Ses01F_script01_1_F000.txt
+│       │   │   ├── Ses01F_script01_1_F001.txt
+│       │   │   ├── Ses01F_script01_1_F002.txt
+│       │   │   └── ... (89 files total: 89 .txt)
+│       │   ├── Ses01F_script01_2/
+│       │   │   ├── Ses01F_script01_2_F000.txt
+│       │   │   ├── Ses01F_script01_2_F001.txt
+│       │   │   ├── Ses01F_script01_2_F002.txt
+│       │   │   └── ... (33 files total: 33 .txt)
+│       │   ├── Ses01F_script01_3/
+│       │   │   ├── Ses01F_script01_3_F000.txt
+│       │   │   ├── Ses01F_script01_3_F001.txt
+│       │   │   ├── Ses01F_script01_3_F002.txt
+│       │   │   └── ... (75 files total: 75 .txt)
+│       │   ├── Ses01F_script02_1/
+│       │   │   ├── Ses01F_script02_1_F000.txt
+│       │   │   ├── Ses01F_script02_1_F001.txt
+│       │   │   ├── Ses01F_script02_1_F002.txt
+│       │   │   └── ... (71 files total: 71 .txt)
+│       │   ├── Ses01F_script02_2/
+│       │   │   ├── Ses01F_script02_2_F000.txt
+│       │   │   ├── Ses01F_script02_2_F001.txt
+│       │   │   ├── Ses01F_script02_2_F002.txt
+│       │   │   └── ... (98 files total: 98 .txt)
+│       │   ├── Ses01F_script03_1/
+│       │   │   ├── Ses01F_script03_1_F000.txt
+│       │   │   ├── Ses01F_script03_1_F001.txt
+│       │   │   ├── Ses01F_script03_1_F002.txt
+│       │   │   └── ... (71 files total: 71 .txt)
+│       │   ├── Ses01F_script03_2/
+│       │   │   ├── Ses01F_script03_2_F000.txt
+│       │   │   ├── Ses01F_script03_2_F001.txt
+│       │   │   ├── Ses01F_script03_2_F002.txt
+│       │   │   └── ... (82 files total: 82 .txt)
+│       │   ├── Ses01M_impro01/
+│       │   │   ├── Ses01M_impro01_F000.txt
+│       │   │   ├── Ses01M_impro01_F001.txt
+│       │   │   ├── Ses01M_impro01_F002.txt
+│       │   │   └── ... (65 files total: 65 .txt)
+│       │   ├── Ses01M_impro02/
+│       │   │   ├── Ses01M_impro02_F000.txt
+│       │   │   ├── Ses01M_impro02_F001.txt
+│       │   │   ├── Ses01M_impro02_F002.txt
+│       │   │   └── ... (48 files total: 48 .txt)
+│       │   ├── Ses01M_impro03/
+│       │   │   ├── Ses01M_impro03_F000.txt
+│       │   │   ├── Ses01M_impro03_F001.txt
+│       │   │   ├── Ses01M_impro03_F002.txt
+│       │   │   └── ... (53 files total: 53 .txt)
+│       │   ├── Ses01M_impro04/
+│       │   │   ├── Ses01M_impro04_F000.txt
+│       │   │   ├── Ses01M_impro04_F001.txt
+│       │   │   ├── Ses01M_impro04_F002.txt
+│       │   │   └── ... (52 files total: 52 .txt)
+│       │   ├── Ses01M_impro05/
+│       │   │   ├── Ses01M_impro05_F000.txt
+│       │   │   ├── Ses01M_impro05_F001.txt
+│       │   │   ├── Ses01M_impro05_F002.txt
+│       │   │   └── ... (70 files total: 70 .txt)
+│       │   ├── Ses01M_impro06/
+│       │   │   ├── Ses01M_impro06_F000.txt
+│       │   │   ├── Ses01M_impro06_F001.txt
+│       │   │   ├── Ses01M_impro06_F002.txt
+│       │   │   └── ... (60 files total: 60 .txt)
+│       │   ├── Ses01M_impro07/
+│       │   │   ├── Ses01M_impro07_F000.txt
+│       │   │   ├── Ses01M_impro07_F001.txt
+│       │   │   ├── Ses01M_impro07_F002.txt
+│       │   │   └── ... (69 files total: 69 .txt)
+│       │   ├── Ses01M_script01_1/
+│       │   │   ├── Ses01M_script01_1_F000.txt
+│       │   │   ├── Ses01M_script01_1_F001.txt
+│       │   │   ├── Ses01M_script01_1_F002.txt
+│       │   │   └── ... (87 files total: 87 .txt)
+│       │   ├── Ses01M_script01_2/
+│       │   │   ├── Ses01M_script01_2_F000.txt
+│       │   │   ├── Ses01M_script01_2_F001.txt
+│       │   │   ├── Ses01M_script01_2_F002.txt
+│       │   │   └── ... (33 files total: 33 .txt)
+│       │   ├── Ses01M_script01_3/
+│       │   │   ├── Ses01M_script01_3_F000.txt
+│       │   │   ├── Ses01M_script01_3_F001.txt
+│       │   │   ├── Ses01M_script01_3_F002.txt
+│       │   │   └── ... (75 files total: 75 .txt)
+│       │   ├── Ses01M_script02_1/
+│       │   │   ├── Ses01M_script02_1_F000.txt
+│       │   │   ├── Ses01M_script02_1_F001.txt
+│       │   │   ├── Ses01M_script02_1_F002.txt
+│       │   │   └── ... (72 files total: 72 .txt)
+│       │   ├── Ses01M_script02_2/
+│       │   │   ├── Ses01M_script02_2_F000.txt
+│       │   │   ├── Ses01M_script02_2_F001.txt
+│       │   │   ├── Ses01M_script02_2_F002.txt
+│       │   │   └── ... (103 files total: 103 .txt)
+│       │   ├── Ses01M_script03_1/
+│       │   │   ├── Ses01M_script03_1_F000.txt
+│       │   │   ├── Ses01M_script03_1_F001.txt
+│       │   │   ├── Ses01M_script03_1_F002.txt
+│       │   │   └── ... (85 files total: 85 .txt)
+│       │   └── Ses01M_script03_2/
+│       │       ├── Ses01M_script03_2_F000.txt
+│       │       ├── Ses01M_script03_2_F001.txt
+│       │       ├── Ses01M_script03_2_F002.txt
+│       │       └── ... (86 files total: 86 .txt)
+│       ├── MOCAP_head/
+│       │   ├── Ses01F_impro01/
+│       │   │   ├── Ses01F_impro01_F000.txt
+│       │   │   ├── Ses01F_impro01_F001.txt
+│       │   │   ├── Ses01F_impro01_F002.txt
+│       │   │   └── ... (30 files total: 30 .txt)
+│       │   ├── Ses01F_impro02/
+│       │   │   ├── Ses01F_impro02_F000.txt
+│       │   │   ├── Ses01F_impro02_F001.txt
+│       │   │   ├── Ses01F_impro02_F002.txt
+│       │   │   └── ... (38 files total: 38 .txt)
+│       │   ├── Ses01F_impro03/
+│       │   │   ├── Ses01F_impro03_F000.txt
+│       │   │   ├── Ses01F_impro03_F001.txt
+│       │   │   ├── Ses01F_impro03_F002.txt
+│       │   │   └── ... (52 files total: 52 .txt)
+│       │   ├── Ses01F_impro04/
+│       │   │   ├── Ses01F_impro04_F000.txt
+│       │   │   ├── Ses01F_impro04_F001.txt
+│       │   │   ├── Ses01F_impro04_F002.txt
+│       │   │   └── ... (71 files total: 71 .txt)
+│       │   ├── Ses01F_impro05/
+│       │   │   ├── Ses01F_impro05_F000.txt
+│       │   │   ├── Ses01F_impro05_F001.txt
+│       │   │   ├── Ses01F_impro05_F002.txt
+│       │   │   └── ... (67 files total: 67 .txt)
+│       │   ├── Ses01F_impro06/
+│       │   │   ├── Ses01F_impro06_F000.txt
+│       │   │   ├── Ses01F_impro06_F001.txt
+│       │   │   ├── Ses01F_impro06_F002.txt
+│       │   │   └── ... (47 files total: 47 .txt)
+│       │   ├── Ses01F_impro07/
+│       │   │   ├── Ses01F_impro07_F000.txt
+│       │   │   ├── Ses01F_impro07_F001.txt
+│       │   │   ├── Ses01F_impro07_F002.txt
+│       │   │   └── ... (37 files total: 37 .txt)
+│       │   ├── Ses01F_script01_1/
+│       │   │   ├── Ses01F_script01_1_F000.txt
+│       │   │   ├── Ses01F_script01_1_F001.txt
+│       │   │   ├── Ses01F_script01_1_F002.txt
+│       │   │   └── ... (89 files total: 89 .txt)
+│       │   ├── Ses01F_script01_2/
+│       │   │   ├── Ses01F_script01_2_F000.txt
+│       │   │   ├── Ses01F_script01_2_F001.txt
+│       │   │   ├── Ses01F_script01_2_F002.txt
+│       │   │   └── ... (33 files total: 33 .txt)
+│       │   ├── Ses01F_script01_3/
+│       │   │   ├── Ses01F_script01_3_F000.txt
+│       │   │   ├── Ses01F_script01_3_F001.txt
+│       │   │   ├── Ses01F_script01_3_F002.txt
+│       │   │   └── ... (75 files total: 75 .txt)
+│       │   ├── Ses01F_script02_1/
+│       │   │   ├── Ses01F_script02_1_F000.txt
+│       │   │   ├── Ses01F_script02_1_F001.txt
+│       │   │   ├── Ses01F_script02_1_F002.txt
+│       │   │   └── ... (71 files total: 71 .txt)
+│       │   ├── Ses01F_script02_2/
+│       │   │   ├── Ses01F_script02_2_F000.txt
+│       │   │   ├── Ses01F_script02_2_F001.txt
+│       │   │   ├── Ses01F_script02_2_F002.txt
+│       │   │   └── ... (98 files total: 98 .txt)
+│       │   ├── Ses01F_script03_1/
+│       │   │   ├── Ses01F_script03_1_F000.txt
+│       │   │   ├── Ses01F_script03_1_F001.txt
+│       │   │   ├── Ses01F_script03_1_F002.txt
+│       │   │   └── ... (71 files total: 71 .txt)
+│       │   ├── Ses01F_script03_2/
+│       │   │   ├── Ses01F_script03_2_F000.txt
+│       │   │   ├── Ses01F_script03_2_F001.txt
+│       │   │   ├── Ses01F_script03_2_F002.txt
+│       │   │   └── ... (82 files total: 82 .txt)
+│       │   ├── Ses01M_impro01/
+│       │   │   ├── Ses01M_impro01_F000.txt
+│       │   │   ├── Ses01M_impro01_F001.txt
+│       │   │   ├── Ses01M_impro01_F002.txt
+│       │   │   └── ... (65 files total: 65 .txt)
+│       │   ├── Ses01M_impro02/
+│       │   │   ├── Ses01M_impro02_F000.txt
+│       │   │   ├── Ses01M_impro02_F001.txt
+│       │   │   ├── Ses01M_impro02_F002.txt
+│       │   │   └── ... (48 files total: 48 .txt)
+│       │   ├── Ses01M_impro03/
+│       │   │   ├── Ses01M_impro03_F000.txt
+│       │   │   ├── Ses01M_impro03_F001.txt
+│       │   │   ├── Ses01M_impro03_F002.txt
+│       │   │   └── ... (53 files total: 53 .txt)
+│       │   ├── Ses01M_impro04/
+│       │   │   ├── Ses01M_impro04_F000.txt
+│       │   │   ├── Ses01M_impro04_F001.txt
+│       │   │   ├── Ses01M_impro04_F002.txt
+│       │   │   └── ... (52 files total: 52 .txt)
+│       │   ├── Ses01M_impro05/
+│       │   │   ├── Ses01M_impro05_F000.txt
+│       │   │   ├── Ses01M_impro05_F001.txt
+│       │   │   ├── Ses01M_impro05_F002.txt
+│       │   │   └── ... (70 files total: 70 .txt)
+│       │   ├── Ses01M_impro06/
+│       │   │   ├── Ses01M_impro06_F000.txt
+│       │   │   ├── Ses01M_impro06_F001.txt
+│       │   │   ├── Ses01M_impro06_F002.txt
+│       │   │   └── ... (60 files total: 60 .txt)
+│       │   ├── Ses01M_impro07/
+│       │   │   ├── Ses01M_impro07_F000.txt
+│       │   │   ├── Ses01M_impro07_F001.txt
+│       │   │   ├── Ses01M_impro07_F002.txt
+│       │   │   └── ... (69 files total: 69 .txt)
+│       │   ├── Ses01M_script01_1/
+│       │   │   ├── Ses01M_script01_1_F000.txt
+│       │   │   ├── Ses01M_script01_1_F001.txt
+│       │   │   ├── Ses01M_script01_1_F002.txt
+│       │   │   └── ... (87 files total: 87 .txt)
+│       │   ├── Ses01M_script01_2/
+│       │   │   ├── Ses01M_script01_2_F000.txt
+│       │   │   ├── Ses01M_script01_2_F001.txt
+│       │   │   ├── Ses01M_script01_2_F002.txt
+│       │   │   └── ... (33 files total: 33 .txt)
+│       │   ├── Ses01M_script01_3/
+│       │   │   ├── Ses01M_script01_3_F000.txt
+│       │   │   ├── Ses01M_script01_3_F001.txt
+│       │   │   ├── Ses01M_script01_3_F002.txt
+│       │   │   └── ... (75 files total: 75 .txt)
+│       │   ├── Ses01M_script02_1/
+│       │   │   ├── Ses01M_script02_1_F000.txt
+│       │   │   ├── Ses01M_script02_1_F001.txt
+│       │   │   ├── Ses01M_script02_1_F002.txt
+│       │   │   └── ... (72 files total: 72 .txt)
+│       │   ├── Ses01M_script02_2/
+│       │   │   ├── Ses01M_script02_2_F000.txt
+│       │   │   ├── Ses01M_script02_2_F001.txt
+│       │   │   ├── Ses01M_script02_2_F002.txt
+│       │   │   └── ... (103 files total: 103 .txt)
+│       │   ├── Ses01M_script03_1/
+│       │   │   ├── Ses01M_script03_1_F000.txt
+│       │   │   ├── Ses01M_script03_1_F001.txt
+│       │   │   ├── Ses01M_script03_1_F002.txt
+│       │   │   └── ... (85 files total: 85 .txt)
+│       │   └── Ses01M_script03_2/
+│       │       ├── Ses01M_script03_2_F000.txt
+│       │       ├── Ses01M_script03_2_F001.txt
+│       │       ├── Ses01M_script03_2_F002.txt
+│       │       └── ... (86 files total: 86 .txt)
+│       ├── MOCAP_rotated/
+│       │   ├── Ses01F_impro01/
+│       │   │   ├── Ses01F_impro01_F000.txt
+│       │   │   ├── Ses01F_impro01_F001.txt
+│       │   │   ├── Ses01F_impro01_F002.txt
+│       │   │   └── ... (30 files total: 30 .txt)
+│       │   ├── Ses01F_impro02/
+│       │   │   ├── Ses01F_impro02_F000.txt
+│       │   │   ├── Ses01F_impro02_F001.txt
+│       │   │   ├── Ses01F_impro02_F002.txt
+│       │   │   └── ... (38 files total: 38 .txt)
+│       │   ├── Ses01F_impro03/
+│       │   │   ├── Ses01F_impro03_F000.txt
+│       │   │   ├── Ses01F_impro03_F001.txt
+│       │   │   ├── Ses01F_impro03_F002.txt
+│       │   │   └── ... (52 files total: 52 .txt)
+│       │   ├── Ses01F_impro04/
+│       │   │   ├── Ses01F_impro04_F000.txt
+│       │   │   ├── Ses01F_impro04_F001.txt
+│       │   │   ├── Ses01F_impro04_F002.txt
+│       │   │   └── ... (71 files total: 71 .txt)
+│       │   ├── Ses01F_impro05/
+│       │   │   ├── Ses01F_impro05_F000.txt
+│       │   │   ├── Ses01F_impro05_F001.txt
+│       │   │   ├── Ses01F_impro05_F002.txt
+│       │   │   └── ... (67 files total: 67 .txt)
+│       │   ├── Ses01F_impro06/
+│       │   │   ├── Ses01F_impro06_F000.txt
+│       │   │   ├── Ses01F_impro06_F001.txt
+│       │   │   ├── Ses01F_impro06_F002.txt
+│       │   │   └── ... (47 files total: 47 .txt)
+│       │   ├── Ses01F_impro07/
+│       │   │   ├── Ses01F_impro07_F000.txt
+│       │   │   ├── Ses01F_impro07_F001.txt
+│       │   │   ├── Ses01F_impro07_F002.txt
+│       │   │   └── ... (37 files total: 37 .txt)
+│       │   ├── Ses01F_script01_1/
+│       │   │   ├── Ses01F_script01_1_F000.txt
+│       │   │   ├── Ses01F_script01_1_F001.txt
+│       │   │   ├── Ses01F_script01_1_F002.txt
+│       │   │   └── ... (89 files total: 89 .txt)
+│       │   ├── Ses01F_script01_2/
+│       │   │   ├── Ses01F_script01_2_F000.txt
+│       │   │   ├── Ses01F_script01_2_F001.txt
+│       │   │   ├── Ses01F_script01_2_F002.txt
+│       │   │   └── ... (33 files total: 33 .txt)
+│       │   ├── Ses01F_script01_3/
+│       │   │   ├── Ses01F_script01_3_F000.txt
+│       │   │   ├── Ses01F_script01_3_F001.txt
+│       │   │   ├── Ses01F_script01_3_F002.txt
+│       │   │   └── ... (75 files total: 75 .txt)
+│       │   ├── Ses01F_script02_1/
+│       │   │   ├── Ses01F_script02_1_F000.txt
+│       │   │   ├── Ses01F_script02_1_F001.txt
+│       │   │   ├── Ses01F_script02_1_F002.txt
+│       │   │   └── ... (71 files total: 71 .txt)
+│       │   ├── Ses01F_script02_2/
+│       │   │   ├── Ses01F_script02_2_F000.txt
+│       │   │   ├── Ses01F_script02_2_F001.txt
+│       │   │   ├── Ses01F_script02_2_F002.txt
+│       │   │   └── ... (98 files total: 98 .txt)
+│       │   ├── Ses01F_script03_1/
+│       │   │   ├── Ses01F_script03_1_F000.txt
+│       │   │   ├── Ses01F_script03_1_F001.txt
+│       │   │   ├── Ses01F_script03_1_F002.txt
+│       │   │   └── ... (71 files total: 71 .txt)
+│       │   ├── Ses01F_script03_2/
+│       │   │   ├── Ses01F_script03_2_F000.txt
+│       │   │   ├── Ses01F_script03_2_F001.txt
+│       │   │   ├── Ses01F_script03_2_F002.txt
+│       │   │   └── ... (82 files total: 82 .txt)
+│       │   ├── Ses01M_impro01/
+│       │   │   ├── Ses01M_impro01_F000.txt
+│       │   │   ├── Ses01M_impro01_F001.txt
+│       │   │   ├── Ses01M_impro01_F002.txt
+│       │   │   └── ... (65 files total: 65 .txt)
+│       │   ├── Ses01M_impro02/
+│       │   │   ├── Ses01M_impro02_F000.txt
+│       │   │   ├── Ses01M_impro02_F001.txt
+│       │   │   ├── Ses01M_impro02_F002.txt
+│       │   │   └── ... (48 files total: 48 .txt)
+│       │   ├── Ses01M_impro03/
+│       │   │   ├── Ses01M_impro03_F000.txt
+│       │   │   ├── Ses01M_impro03_F001.txt
+│       │   │   ├── Ses01M_impro03_F002.txt
+│       │   │   └── ... (53 files total: 53 .txt)
+│       │   ├── Ses01M_impro04/
+│       │   │   ├── Ses01M_impro04_F000.txt
+│       │   │   ├── Ses01M_impro04_F001.txt
+│       │   │   ├── Ses01M_impro04_F002.txt
+│       │   │   └── ... (52 files total: 52 .txt)
+│       │   ├── Ses01M_impro05/
+│       │   │   ├── Ses01M_impro05_F000.txt
+│       │   │   ├── Ses01M_impro05_F001.txt
+│       │   │   ├── Ses01M_impro05_F002.txt
+│       │   │   └── ... (70 files total: 70 .txt)
+│       │   ├── Ses01M_impro06/
+│       │   │   ├── Ses01M_impro06_F000.txt
+│       │   │   ├── Ses01M_impro06_F001.txt
+│       │   │   ├── Ses01M_impro06_F002.txt
+│       │   │   └── ... (60 files total: 60 .txt)
+│       │   ├── Ses01M_impro07/
+│       │   │   ├── Ses01M_impro07_F000.txt
+│       │   │   ├── Ses01M_impro07_F001.txt
+│       │   │   ├── Ses01M_impro07_F002.txt
+│       │   │   └── ... (69 files total: 69 .txt)
+│       │   ├── Ses01M_script01_1/
+│       │   │   ├── Ses01M_script01_1_F000.txt
+│       │   │   ├── Ses01M_script01_1_F001.txt
+│       │   │   ├── Ses01M_script01_1_F002.txt
+│       │   │   └── ... (87 files total: 87 .txt)
+│       │   ├── Ses01M_script01_2/
+│       │   │   ├── Ses01M_script01_2_F000.txt
+│       │   │   ├── Ses01M_script01_2_F001.txt
+│       │   │   ├── Ses01M_script01_2_F002.txt
+│       │   │   └── ... (33 files total: 33 .txt)
+│       │   ├── Ses01M_script01_3/
+│       │   │   ├── Ses01M_script01_3_F000.txt
+│       │   │   ├── Ses01M_script01_3_F001.txt
+│       │   │   ├── Ses01M_script01_3_F002.txt
+│       │   │   └── ... (75 files total: 75 .txt)
+│       │   ├── Ses01M_script02_1/
+│       │   │   ├── Ses01M_script02_1_F000.txt
+│       │   │   ├── Ses01M_script02_1_F001.txt
+│       │   │   ├── Ses01M_script02_1_F002.txt
+│       │   │   └── ... (72 files total: 72 .txt)
+│       │   ├── Ses01M_script02_2/
+│       │   │   ├── Ses01M_script02_2_F000.txt
+│       │   │   ├── Ses01M_script02_2_F001.txt
+│       │   │   ├── Ses01M_script02_2_F002.txt
+│       │   │   └── ... (103 files total: 103 .txt)
+│       │   ├── Ses01M_script03_1/
+│       │   │   ├── Ses01M_script03_1_F000.txt
+│       │   │   ├── Ses01M_script03_1_F001.txt
+│       │   │   ├── Ses01M_script03_1_F002.txt
+│       │   │   └── ... (85 files total: 85 .txt)
+│       │   └── Ses01M_script03_2/
+│       │       ├── Ses01M_script03_2_F000.txt
+│       │       ├── Ses01M_script03_2_F001.txt
+│       │       ├── Ses01M_script03_2_F002.txt
+│       │       └── ... (86 files total: 86 .txt)
+│       └── wav/
+│           ├── Ses01F_impro01/
+│           │   ├── Ses01F_impro01_F000.wav
+│           │   ├── Ses01F_impro01_F001.wav
+│           │   ├── Ses01F_impro01_F002.wav
+│           │   └── ... (30 files total: 30 .wav)
+│           ├── Ses01F_impro02/
+│           │   ├── Ses01F_impro02_F000.wav
+│           │   ├── Ses01F_impro02_F001.wav
+│           │   ├── Ses01F_impro02_F002.wav
+│           │   └── ... (38 files total: 38 .wav)
+│           ├── Ses01F_impro03/
+│           │   ├── Ses01F_impro03_F000.wav
+│           │   ├── Ses01F_impro03_F001.wav
+│           │   ├── Ses01F_impro03_F002.wav
+│           │   └── ... (52 files total: 52 .wav)
+│           ├── Ses01F_impro04/
+│           │   ├── Ses01F_impro04_F000.wav
+│           │   ├── Ses01F_impro04_F001.wav
+│           │   ├── Ses01F_impro04_F002.wav
+│           │   └── ... (71 files total: 71 .wav)
+│           ├── Ses01F_impro05/
+│           │   ├── Ses01F_impro05_F000.wav
+│           │   ├── Ses01F_impro05_F001.wav
+│           │   ├── Ses01F_impro05_F002.wav
+│           │   └── ... (67 files total: 67 .wav)
+│           ├── Ses01F_impro06/
+│           │   ├── Ses01F_impro06_F000.wav
+│           │   ├── Ses01F_impro06_F001.wav
+│           │   ├── Ses01F_impro06_F002.wav
+│           │   └── ... (47 files total: 47 .wav)
+│           ├── Ses01F_impro07/
+│           │   ├── Ses01F_impro07_F000.wav
+│           │   ├── Ses01F_impro07_F001.wav
+│           │   ├── Ses01F_impro07_F002.wav
+│           │   └── ... (37 files total: 37 .wav)
+│           ├── Ses01F_script01_1/
+│           │   ├── Ses01F_script01_1_F000.wav
+│           │   ├── Ses01F_script01_1_F001.wav
+│           │   ├── Ses01F_script01_1_F002.wav
+│           │   └── ... (89 files total: 89 .wav)
+│           ├── Ses01F_script01_2/
+│           │   ├── Ses01F_script01_2_F000.wav
+│           │   ├── Ses01F_script01_2_F001.wav
+│           │   ├── Ses01F_script01_2_F002.wav
+│           │   └── ... (33 files total: 33 .wav)
+│           ├── Ses01F_script01_3/
+│           │   ├── Ses01F_script01_3_F000.wav
+│           │   ├── Ses01F_script01_3_F001.wav
+│           │   ├── Ses01F_script01_3_F002.wav
+│           │   └── ... (76 files total: 1 .pk, 75 .wav)
+│           ├── Ses01F_script02_1/
+│           │   ├── Ses01F_script02_1_F000.wav
+│           │   ├── Ses01F_script02_1_F001.wav
+│           │   ├── Ses01F_script02_1_F002.wav
+│           │   └── ... (71 files total: 71 .wav)
+│           ├── Ses01F_script02_2/
+│           │   ├── Ses01F_script02_2_F000.wav
+│           │   ├── Ses01F_script02_2_F001.wav
+│           │   ├── Ses01F_script02_2_F002.wav
+│           │   └── ... (98 files total: 98 .wav)
+│           ├── Ses01F_script03_1/
+│           │   ├── Ses01F_script03_1_F000.wav
+│           │   ├── Ses01F_script03_1_F001.wav
+│           │   ├── Ses01F_script03_1_F002.wav
+│           │   └── ... (71 files total: 71 .wav)
+│           ├── Ses01F_script03_2/
+│           │   ├── Ses01F_script03_2_F000.wav
+│           │   ├── Ses01F_script03_2_F001.wav
+│           │   ├── Ses01F_script03_2_F002.wav
+│           │   └── ... (82 files total: 82 .wav)
+│           ├── Ses01M_impro01/
+│           │   ├── Ses01M_impro01_F000.wav
+│           │   ├── Ses01M_impro01_F001.wav
+│           │   ├── Ses01M_impro01_F002.wav
+│           │   └── ... (65 files total: 65 .wav)
+│           ├── Ses01M_impro02/
+│           │   ├── Ses01M_impro02_F000.wav
+│           │   ├── Ses01M_impro02_F001.wav
+│           │   ├── Ses01M_impro02_F002.wav
+│           │   └── ... (48 files total: 48 .wav)
+│           ├── Ses01M_impro03/
+│           │   ├── Ses01M_impro03_F000.wav
+│           │   ├── Ses01M_impro03_F001.wav
+│           │   ├── Ses01M_impro03_F002.wav
+│           │   └── ... (53 files total: 53 .wav)
+│           ├── Ses01M_impro04/
+│           │   ├── Ses01M_impro04_F000.wav
+│           │   ├── Ses01M_impro04_F001.wav
+│           │   ├── Ses01M_impro04_F002.wav
+│           │   └── ... (52 files total: 52 .wav)
+│           ├── Ses01M_impro05/
+│           │   ├── Ses01M_impro05_F000.wav
+│           │   ├── Ses01M_impro05_F001.wav
+│           │   ├── Ses01M_impro05_F002.wav
+│           │   └── ... (70 files total: 70 .wav)
+│           ├── Ses01M_impro06/
+│           │   ├── Ses01M_impro06_F000.wav
+│           │   ├── Ses01M_impro06_F001.wav
+│           │   ├── Ses01M_impro06_F002.wav
+│           │   └── ... (60 files total: 60 .wav)
+│           ├── Ses01M_impro07/
+│           │   ├── Ses01M_impro07_F000.wav
+│           │   ├── Ses01M_impro07_F001.wav
+│           │   ├── Ses01M_impro07_F002.wav
+│           │   └── ... (69 files total: 69 .wav)
+│           ├── Ses01M_script01_1/
+│           │   ├── Ses01M_script01_1_F000.wav
+│           │   ├── Ses01M_script01_1_F001.wav
+│           │   ├── Ses01M_script01_1_F002.wav
+│           │   └── ... (87 files total: 87 .wav)
+│           ├── Ses01M_script01_2/
+│           │   ├── Ses01M_script01_2_F000.wav
+│           │   ├── Ses01M_script01_2_F001.wav
+│           │   ├── Ses01M_script01_2_F002.wav
+│           │   └── ... (33 files total: 33 .wav)
+│           ├── Ses01M_script01_3/
+│           │   ├── Ses01M_script01_3_F000.wav
+│           │   ├── Ses01M_script01_3_F001.wav
+│           │   ├── Ses01M_script01_3_F002.wav
+│           │   └── ... (75 files total: 75 .wav)
+│           ├── Ses01M_script02_1/
+│           │   ├── Ses01M_script02_1_F000.wav
+│           │   ├── Ses01M_script02_1_F001.wav
+│           │   ├── Ses01M_script02_1_F002.wav
+│           │   └── ... (72 files total: 72 .wav)
+│           ├── Ses01M_script02_2/
+│           │   ├── Ses01M_script02_2_F000.wav
+│           │   ├── Ses01M_script02_2_F001.wav
+│           │   ├── Ses01M_script02_2_F002.wav
+│           │   └── ... (103 files total: 103 .wav)
+│           ├── Ses01M_script03_1/
+│           │   ├── Ses01M_script03_1_F000.wav
+│           │   ├── Ses01M_script03_1_F001.wav
+│           │   ├── Ses01M_script03_1_F002.wav
+│           │   └── ... (85 files total: 85 .wav)
+│           └── Ses01M_script03_2/
+│               ├── Ses01M_script03_2_F000.wav
+│               ├── Ses01M_script03_2_F001.wav
+│               ├── Ses01M_script03_2_F002.wav
+│               └── ... (86 files total: 86 .wav)
+├── Session2/   (same layout as Session1; 15125 files)
+├── Session3/   (same layout as Session1; 17828 files)
+├── Session4/   (same layout as Session1; 17399 files)
+├── Session5/   (same layout as Session1; 17736 files)
