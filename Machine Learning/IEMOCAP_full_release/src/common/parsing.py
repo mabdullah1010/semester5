@@ -75,3 +75,25 @@ def parse_cat_text(text: str) -> dict[str, list[str]]:
         utt, _, rest = line.partition(" ")
         out[utt] = split_categories(rest)
     return out
+
+
+SEG_LINE_RE = re.compile(r"^(?P<seg_id>Ses\d\d[FM]_\S+?_(?P<spk>[FM])(?P<idx>XX\d*|\d{3})) \[(?P<s>[\d.]+)-(?P<e>[\d.]+)\]:")
+
+
+def parse_transcription_line(line: str):
+    """'ID [start-end]: text' -> dict, or None if the line is not a timed segment line."""
+    m = SEG_LINE_RE.match(line)
+    if not m:
+        return None
+    return dict(seg_id=m.group("seg_id"), speaker_letter=m.group("spk"),
+                start=float(m.group("s")), end=float(m.group("e")))
+
+
+def parse_lab_text(text: str):
+    """'.lab' file: 'start end label' per line; label 'd' marks gaps. Returns [(seg_id, start, end)]."""
+    out = []
+    for line in text.splitlines():
+        p = line.split()
+        if len(p) == 3 and p[2] != "d":
+            out.append((p[2], float(p[0]), float(p[1])))
+    return out
