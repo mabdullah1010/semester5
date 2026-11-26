@@ -41,3 +41,10 @@ def list_files(root, suffix: str | None = None, count_junk: list | None = None):
             if suffix is None or fn.endswith(suffix):
                 out.append(p)
     return sorted(out)
+
+
+def write_json(obj, path):
+    import json
+    from pathlib import Path
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(json.dumps(obj, indent=2, default=str))
