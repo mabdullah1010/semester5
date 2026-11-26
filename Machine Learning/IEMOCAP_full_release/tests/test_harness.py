@@ -1,3 +1,4 @@
+"""Validation tests for the evaluation harness: leave-one-session-out splits never mix speakers, metrics match sklearn, shuffled/majority baselines behave."""
 import sys
 from pathlib import Path
 import numpy as np

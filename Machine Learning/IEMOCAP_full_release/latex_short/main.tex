@@ -1,0 +1,381 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage[hidelinks]{hyperref}
+\usepackage{xcolor}
+\usepackage{caption}
+\captionsetup{font=small}
+\usepackage{etoolbox}
+\AtBeginEnvironment{longtable}{\footnotesize}
+\setlength{\emergencystretch}{3em}
+\providecommand{\tightlist}{\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\providecommand{\pandocbounded}[1]{#1}
+\setkeys{Gin}{width=\linewidth,height=0.38\textheight,keepaspectratio}
+\title{The Cost of Interpretability in Speech Emotion Recognition on IEMOCAP}
+\author{Initial full-length report (to be trimmed)}
+\date{\today}
+\begin{document}
+\maketitle
+\tableofcontents
+\clearpage
+\section{Summary}\label{summary}
+
+We ask how much UAR (unweighted average recall) is lost when an interpretable model replaces a black box for 4-class emotion recognition (neutral, happy+excited, sad, angry) on IEMOCAP, using leave-one-session-out evaluation on 3,958 utterances after removing partner-overlap. With named eGeMAPS features the best black box reaches UAR 0.564 and the best budgeted interpretable model 0.500 (gap +0.064 {[}+0.049, +0.079{]}). With WavLM features the black box reaches 0.679, but a simple model (at most 20 features) on those unreadable features does not benefit (gap +0.207 {[}+0.189, +0.224{]}). A dense linear model on WavLM (no budget) gets 0.668, so the cost is set mostly by the complexity budget, not by linearity. Training on rater-vote distributions (soft labels) does not shrink the gap consistently.
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Hypothesis
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Verdict
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Evidence
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+H1 & Supported & Delta\_model = +0.064 {[}+0.049, +0.079{]} on eGeMAPS and +0.207 {[}+0.189, +0.224{]} on WavLM (CI excludes 0 on both). \\
+H2 & Not supported as stated; the two factors interact & Switching to WavLM does not help the budgeted L1-LR (-0.000 {[}-0.018, +0.016{]}) or the tree (-0.020 {[}-0.039, -0.000{]}) but helps the dense MLP (+0.115 {[}+0.099, +0.130{]}). Feature share of the total gap is 64\% if the model changes first and negative if the features change first. \\
+H3 & Not supported & Gap shrinkage (hard minus soft) on all test utterances: eGeMAPS +0.016 {[}+0.003, +0.028{]} (selection-free +0.007 {[}-0.002, +0.017{]}), WavLM -0.019 {[}-0.033, -0.003{]} (selection-free -0.010 {[}-0.019, -0.001{]}); the sign depends on the feature set. \\
+H4 & Supported in direction: the gap is larger, not smaller, on high-agreement utterances & Delta(high-agreement) minus Delta(all) is positive in all 4 selection-free comparisons (CI excludes 0 in 3 of 4) and in 1 of 4 selected-model comparisons. \\
+\end{longtable}
+
+\section{Question and hypotheses}\label{question-and-hypotheses}
+
+\textbf{Question.} How much accuracy do we lose by using an interpretable model instead of a black box for speech emotion recognition on IEMOCAP, and does that gap shrink when models are trained on the raters' disagreement (soft labels) instead of a single majority label?
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{H1} Black-box models beat interpretable models on the same features.
+\item
+  \textbf{H2} Most of the total gap comes from the features, not the model.
+\item
+  \textbf{H3} The gap shrinks when training on soft labels.
+\item
+  \textbf{H4} The gap differs on high-agreement utterances compared with all utterances.
+\end{itemize}
+
+A fifth planned hypothesis, that overlapping speech hurts accuracy, was dropped: each utterance wav contains only the speaker's own microphone and the clean subset is too small and too different in class mix to test it (section 4.4). Overlap is treated as a robustness question instead: does the choice of overlap handling change the conclusions?
+
+Any outcome is reportable; nothing was tuned to make a hypothesis work.
+
+\section{Data audit}\label{data-audit}
+
+\textbf{Inventory.} 151 dialogs and 10,039 utterance wavs were found, all 16 kHz mono 16-bit (dialog wavs: 16 kHz stereo). There are 0 unreadable files and 0 exact duplicates; 84,039 junk files (\texttt{.\_*}, \texttt{.pk}, \texttt{.DS\_Store}) were skipped.
+
+\textbf{Labels.} The official label is reproduced exactly by rule A (plurality of the three external raters, each rater counting once per listed category, ties to \texttt{xxx}): match rate 1.000 (rule B 0.997, rule C including self-evaluation 0.946). All 10,039 utterances, per-session counts and the 4-class set of 5,531 utterances match the dataset guide.
+
+\textbf{Rater agreement.} Krippendorff's alpha (nominal; multi-category votes kept as distributions) is 0.372 on all utterances and 0.504 on the primary set. By class (one-vs-rest, primary set): neu 0.412, hap 0.735, sad 0.634, ang 0.639. Neutral is the contested class. The actor's own label includes the observers' label in 69\% of 1,575 self-evaluated utterances.
+
+\textbf{Approximate human ceiling.} Predicting each rater's vote from the other two raters (only where those two agree) gives UAR 0.657 and WA 0.687. This is called \emph{approximate} because it is optimistic in one way (items without agreement are skipped) and not like-for-like in another (a single rater is compared with a consensus); it is not a true upper bound, and 2 of our models exceed it (l2lr+wavlm, mlp+wavlm).
+
+\textbf{Overlap.} Partner speech overlaps 88\% of 4-class utterances in the transcript timings (padding 0.1 s), more for angry (97\%) and neutral (94\%) than sad (68\%); class and overlap are strongly dependent (chi-square p = 2e-116). Every utterance wav is a sample-exact copy of one channel (the speaker's own microphone) of the stereo dialog, so the partner is present only as microphone bleed. A stereo crosstalk detector was calibrated on the transcript overlaps but failed its own gate (recall 0.206 at tau = 5 dB, required 0.5), so it was dropped. The strictly clean policy P1 keeps only 668 utterances (37 angry) and fails the retention rule. The primary policy is \textbf{P2}: overlapping spans are cut and the longest clean piece (\textgreater= 1 s) kept, giving 3,958 utterances (neu 1163, hap 1062, sad 962, ang 771); every class keeps 65\% or more of its P0 count. P0 (all clips) is carried through as a secondary run.
+
+\textbf{How large are the overlaps?} Overlap is common but mostly sits at the clip edges. Among the 4,863 overlapped utterances the median overlap is 1.3 s, which is 40\% of the clip; only 12\% overlap for less than 0.5 s and 23\% for 2 s or more. In 96\% of overlapped utterances every overlapped stretch touches the start or the end of the clip, so P2 mostly trims clip edges (turn boundaries) rather than cutting out the middle. The edges are not small, however: P2 trimmed 83\% of its clips and kept a median of 73\% of the duration of the trimmed ones. The overlap histogram is in the figure below.
+
+\begin{figure}[H]
+\centering
+\pandocbounded{\includegraphics[keepaspectratio]{figures/m3_overlap_hist.png}}
+\caption{overlap histogram}
+\end{figure}
+
+\textbf{Leakage checks.} Leave-one-session-out means no speaker appears in both train and test (asserted in tests and in M3). A shuffled-label logistic regression gives UAR 0.248, 0.243, 0.251 (must lie in 0.22-0.28), a majority predictor gives exactly 0.25 in every fold, and per-speaker z-scoring cuts a speaker-ID probe from 0.823 to 0.059 (chance 0.100). Re-extracting 20 random clips reproduced features exactly (max abs difference 0 for eGeMAPS and 0 for WavLM). 299 near-duplicate candidates were checked by waveform correlation (max 0.19): none are duplicates. Scripted lines are reused across sessions, but scripted-dialog UAR is lower than improvised for every model, and the models never see text, so there is no sign that the reused scripts inflate scores.
+
+\begin{figure}[H]
+\centering
+\pandocbounded{\includegraphics[keepaspectratio]{figures/m3_overlap_by_class.png}}
+\caption{overlap and policies}
+\end{figure}
+
+Table 1: policy counts.
+
+\begin{longtable}[]{@{}llllll@{}}
+\toprule\noalign{}
+policy & total & neu & hap & sad & ang \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+P0 & 5531 & 1708 & 1636 & 1084 & 1103 \\
+P1 & 668 & 106 & 179 & 346 & 37 \\
+P2 & 3958 & 1163 & 1062 & 962 & 771 \\
+\end{longtable}
+
+Table 2: rater agreement.
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 14\tabcolsep) * \real{0.1250}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 14\tabcolsep) * \real{0.1250}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 14\tabcolsep) * \real{0.1250}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 14\tabcolsep) * \real{0.1250}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 14\tabcolsep) * \real{0.1250}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 14\tabcolsep) * \real{0.1250}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 14\tabcolsep) * \real{0.1250}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 14\tabcolsep) * \real{0.1250}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+set
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+n
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+alpha
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+kappa
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+alpha\_neu
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+alpha\_hap
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+alpha\_sad
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+alpha\_ang
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+all utterances & 10039 & 0.372 & 0.372 & 0.224 & 0.603 & 0.480 & 0.387 \\
+P0 4-class & 5531 & 0.510 & 0.510 & 0.410 & 0.735 & 0.633 & 0.649 \\
+P2 primary & 3958 & 0.504 & 0.504 & 0.412 & 0.735 & 0.634 & 0.639 \\
+\end{longtable}
+
+\section{Method}\label{method}
+
+\textbf{Features.} \emph{Interpretable}: the 88 eGeMAPSv02 functionals (openSMILE, named acoustic measurements). \emph{Learned}: mean-pooled hidden states of frozen \texttt{microsoft/wavlm-base-plus} (13 layers); one layer per fold is chosen with a logistic-regression probe on an inner validation session (training sessions only). Layers chosen: fold 1: 10, fold 2: 10, fold 3: 9, fold 4: 11, fold 5: 9.
+
+\textbf{Evaluation.} Five folds, each testing on one session and training on the other four; hyperparameters are tuned on a held-out training session and the model is refit on all four training sessions. Preprocessing (median imputation, per-speaker z-scoring using each speaker's own unlabeled features, global scaler) is fit inside each fold only. Metric: UAR; secondary: accuracy and macro-F1. Significance: paired bootstrap over test utterances resampled within each session (2,000 resamples, 95\% intervals); McNemar's test as a second opinion. Stochastic models use 3 seeds.
+
+\textbf{Complexity budget (fixed before any M7 result).} Interpretable = L1 logistic regression with at most 20 nonzero features (a feature counts if any class uses it) or a decision tree with at most 16 leaves. Black boxes: HistGradientBoosting, random forest, MLP. An unbudgeted L2 logistic regression is reported as a reference. The best model per cell is chosen by mean inner-validation UAR, never by test UAR.
+
+\textbf{Soft labels.} Each training utterance is expanded into one row per class with nonzero rater-vote mass; the row weight is that mass times the balanced class weight of the utterance's hard label (the weights of one utterance sum to its class weight). The MLP minimizes weighted cross-entropy against the soft target. Tuning and test labels stay hard, so hard- and soft-trained models are scored on identical test sets.
+
+\section{Results}\label{results}
+
+\subsection{The 2x2 grid (hard labels, primary policy) - H1 and H2}\label{the-2x2-grid-hard-labels-primary-policy---h1-and-h2}
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Interpretable (budgeted)
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Black box
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+eGeMAPS & L1-LR (\textless=20 features): \textbf{0.500} {[}0.486, 0.514{]} & MLP: \textbf{0.564} {[}0.550, 0.577{]} \\
+WavLM & \emph{simple model, unreadable features}: decision tree (\textless=16 leaves): \textbf{0.472} {[}0.457, 0.487{]} & MLP: \textbf{0.679} {[}0.666, 0.692{]} \\
+\end{longtable}
+
+Approximate human ceiling 0.657; chance 0.25.
+
+\textbf{Reading the WavLM row.} The WavLM / interpretable cell is a \emph{simple model on unreadable features}: a 20-feature L1 model or a 16-leaf tree over WavLM dimensions is small, but nobody can read it, because the dimensions have no names. It shows what a small model can do on learned features; only the eGeMAPS cell is interpretable in the sense of a human-readable model.
+
+\begin{figure}[H]
+\centering
+\pandocbounded{\includegraphics[keepaspectratio]{figures/m7_grid.png}}
+\caption{grid}
+\end{figure}
+
+Table 3: all models, pooled leave-one-session-out UAR.
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1429}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1429}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1429}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1429}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1429}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1429}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 12\tabcolsep) * \real{0.1429}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+model
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+features
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+group
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+UAR (95\% CI)
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+WA
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+macroF1
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+fold\_std
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+hgb & egemaps & blackbox & 0.551 {[}0.538, 0.565{]} & 0.543 & 0.545 & 0.033 \\
+hgb & wavlm & blackbox & 0.648 {[}0.635, 0.662{]} & 0.641 & 0.646 & 0.033 \\
+l1lr & egemaps & interpretable & 0.500 {[}0.486, 0.514{]} & 0.47 & 0.444 & 0.028 \\
+l1lr & wavlm & interpretable & 0.500 {[}0.487, 0.513{]} & 0.468 & 0.411 & 0.023 \\
+l2lr & egemaps & unbudgeted & 0.552 {[}0.537, 0.567{]} & 0.541 & 0.54 & 0.024 \\
+l2lr & wavlm & unbudgeted & 0.668 {[}0.654, 0.684{]} & 0.659 & 0.661 & 0.03 \\
+mlp & egemaps & blackbox & 0.564 {[}0.550, 0.577{]} & 0.554 & 0.555 & 0.034 \\
+mlp & wavlm & blackbox & 0.679 {[}0.666, 0.692{]} & 0.671 & 0.673 & 0.035 \\
+rf & egemaps & blackbox & 0.553 {[}0.538, 0.567{]} & 0.545 & 0.549 & 0.03 \\
+rf & wavlm & blackbox & 0.622 {[}0.607, 0.636{]} & 0.616 & 0.62 & 0.032 \\
+tree & egemaps & interpretable & 0.492 {[}0.477, 0.507{]} & 0.477 & 0.465 & 0.028 \\
+tree & wavlm & interpretable & 0.472 {[}0.457, 0.487{]} & 0.46 & 0.456 & 0.031 \\
+\end{longtable}
+
+Table 4: costs.
+
+\begin{longtable}[]{@{}ll@{}}
+\toprule\noalign{}
+quantity & value \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Delta\_model eGeMAPS & +0.064 {[}+0.049, +0.079{]} \\
+Delta\_model WavLM & +0.207 {[}+0.189, +0.224{]} \\
+Delta\_total & +0.179 {[}+0.160, +0.195{]} \\
+Delta\_feature l1lr & -0.000 {[}-0.018, +0.016{]} \\
+Delta\_feature tree & -0.020 {[}-0.039, -0.000{]} \\
+Delta\_feature l2lr & +0.116 {[}+0.099, +0.133{]} \\
+Delta\_feature hgb & +0.096 {[}+0.081, +0.111{]} \\
+Delta\_feature rf & +0.069 {[}+0.053, +0.084{]} \\
+Delta\_feature mlp & +0.115 {[}+0.099, +0.130{]} \\
+\end{longtable}
+
+\textbf{H1: Supported.} Delta\_model = +0.064 {[}+0.049, +0.079{]} on eGeMAPS and +0.207 {[}+0.189, +0.224{]} on WavLM (CI excludes 0 on both). McNemar's test agrees (p = 1e-23 and 1e-102).
+
+\textbf{H2: Not supported as stated; the two factors interact.} Switching to WavLM does not help the budgeted L1-LR (-0.000 {[}-0.018, +0.016{]}) or the tree (-0.020 {[}-0.039, -0.000{]}) but helps the dense MLP (+0.115 {[}+0.099, +0.130{]}). Feature share of the total gap is 64\% if the model changes first and negative if the features change first. Order matters because of the interaction: model-first gives +0.064 {[}+0.049, +0.079{]} then +0.115 {[}+0.099, +0.130{]}; feature-first gives -0.028 {[}-0.047, -0.008{]} then +0.207 {[}+0.189, +0.224{]}. WavLM helps only models that can use many dimensions.
+
+\textbf{Caution on selection.} On WavLM the validation rule picks tree as the best budgeted model although l1lr scored higher on test; with test-oracle selection Delta\_model(WavLM) would be +0.179 {[}+0.162, +0.195{]}. Models above the approximate human ceiling: l2lr+wavlm, mlp+wavlm. We found no sign of leakage (checks in section 2), and the ceiling is not a like-for-like bound.
+
+\subsection{Soft labels - H3 and H4}\label{soft-labels---h3-and-h4}
+
+Table 5: hard- versus soft-trained (best model per cell, UAR with 95\% CI).
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1667}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1667}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1667}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1667}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1667}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 10\tabcolsep) * \real{0.1667}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+setting
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+interpretable\_egemaps
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+blackbox\_egemaps
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+interpretable\_wavlm
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+blackbox\_wavlm
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+human\_ceiling
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+hard labels, all test & 0.500 {[}0.486,0.514{]} (L1-LR (\textless=20 feats)) & 0.564 {[}0.550,0.577{]} (MLP) & 0.472 {[}0.457,0.487{]} (Tree (\textless=16 leaves)) & 0.679 {[}0.666,0.692{]} (MLP) & 0.657 \\
+soft labels, all test & 0.518 {[}0.504,0.532{]} (L1-LR (\textless=20 feats)) & 0.566 {[}0.551,0.580{]} (MLP) & 0.455 {[}0.441,0.471{]} (Tree (\textless=16 leaves)) & 0.681 {[}0.668,0.694{]} (MLP) & 0.657 \\
+hard labels, high-agreement test & 0.554 {[}0.532,0.577{]} (L1-LR (\textless=20 feats)) & 0.637 {[}0.614,0.659{]} (MLP) & 0.523 {[}0.496,0.549{]} (Tree (\textless=16 leaves)) & 0.749 {[}0.728,0.771{]} (MLP) & 0.657 \\
+soft labels, high-agreement test & 0.570 {[}0.545,0.593{]} (L1-LR (\textless=20 feats)) & 0.638 {[}0.614,0.661{]} (MLP) & 0.497 {[}0.472,0.524{]} (Tree (\textless=16 leaves)) & 0.767 {[}0.746,0.788{]} (MLP) & 0.657 \\
+\end{longtable}
+
+\textbf{H3: Not supported.} Gap shrinkage (hard minus soft) on all test utterances: eGeMAPS +0.016 {[}+0.003, +0.028{]} (selection-free +0.007 {[}-0.002, +0.017{]}), WavLM -0.019 {[}-0.033, -0.003{]} (selection-free -0.010 {[}-0.019, -0.001{]}); the sign depends on the feature set. Per-model changes from soft training are within +-0.006 UAR for 9 of 12 runs; the exceptions are l1lr+egemaps (+0.018 {[}+0.007, +0.029{]}), l1lr+wavlm (-0.008 {[}-0.017, +0.001{]}), tree+wavlm (-0.017 {[}-0.029, -0.004{]}). The L1-LR on eGeMAPS change is driven by tuning variance: in fold 2 the inner tuning chose 17 features under soft training versus 6 under hard training. Soft training does improve how well predicted distributions match rater distributions: cross-entropy of the best black box on WavLM falls from 1.249 to 0.927 nats.
+
+Table 6: gap shrinkage Delta(hard) - Delta(soft); positive means the gap shrank.
+
+\begin{longtable}[]{@{}ll@{}}
+\toprule\noalign{}
+quantity & value \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+egemaps / all & +0.016 {[}+0.003, +0.028{]} \\
+egemaps / ha & +0.015 {[}-0.005, +0.033{]} \\
+wavlm / all & -0.019 {[}-0.033, -0.003{]} \\
+wavlm / ha & -0.044 {[}-0.071, -0.015{]} \\
+\end{longtable}
+
+\textbf{H4: Supported in direction: the gap is larger, not smaller, on high-agreement utterances.} Delta(high-agreement) minus Delta(all) is positive in all 4 selection-free comparisons (CI excludes 0 in 3 of 4) and in 1 of 4 selected-model comparisons. If the black box's advantage came from fitting label noise, the gap would shrink on high-agreement utterances; it grows. The high-agreement subset has 1,560 utterances (neu 272, hap 723, sad 356, ang 209), mean soft-label entropy is only 0.22 bits, so soft targets are close to one-hot for most clips.
+
+Table 7: Delta(high-agreement) - Delta(all).
+
+\begin{longtable}[]{@{}lll@{}}
+\toprule\noalign{}
+condition & selected\_models & selection\_free \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+hard / egemaps & +0.019 {[}-0.001, +0.039{]} & +0.021 {[}+0.007, +0.036{]} \\
+hard / wavlm & +0.019 {[}-0.005, +0.043{]} & +0.030 {[}+0.014, +0.047{]} \\
+soft / egemaps & +0.020 {[}-0.000, +0.039{]} & +0.012 {[}-0.001, +0.025{]} \\
+soft / wavlm & +0.044 {[}+0.020, +0.069{]} & +0.045 {[}+0.028, +0.062{]} \\
+\end{longtable}
+
+\begin{figure}[H]
+\centering
+\pandocbounded{\includegraphics[keepaspectratio]{figures/m9_gap_hard_vs_soft.png}}
+\caption{h3}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\pandocbounded{\includegraphics[keepaspectratio]{figures/m9_gap_by_agreement.png}}
+\caption{h4}
+\end{figure}
+
+\section{Limitations}\label{limitations}
+
+\begin{itemize}
+\tightlist
+\item
+  Acted emotion from 10 actors in 5 sessions; five folds and one dataset, so differences between sessions (fold 4 is the hardest in most runs) matter and generalization to natural speech is untested.
+\item
+  The approximate human ceiling is optimistic in how it filters items and is not like-for-like with consensus-label evaluation; it should not be read as an upper bound.
+\item
+  Overlap handling: utterance wavs are single-microphone, so partner bleed rather than partner speech is what contaminates a clip. The crosstalk detector failed its recall gate (0.206 \textless{} 0.5). The primary policy P2 cuts whole overlapped spans, which also removes the speaker's own speech during them, drops 28\% of clips non-randomly, and shifts the class mix slightly; P0 is reported alongside.
+\item
+  Happy and excited are merged; frustration and other classes are excluded, which removes the hardest, noisiest categories. Soft labels are 4-class renormalizations (38.9\% of primary-policy utterances had votes outside the 4 classes).
+\item
+  The `best' budgeted model is chosen by inner-validation UAR; this is leak-free but noisy (the budgeted L1-LR on WavLM is unstable; validation chose tree while l1lr scored higher on test), and the tuned L1-LR under-used its budget, so Delta\_model(eGeMAPS) is +0.039 with a fixed-penalty sensitivity point versus +0.064 pre-registered.
+\item
+  About 20 H3/H4-related intervals are reported at 95\% without multiple-comparison correction; bounds close to zero (for example H3 on eGeMAPS) are fragile.
+\item
+  Gradient boosting's built-in early-stopping split can place duplicated soft-label rows of one utterance on both sides. The L1 sweep on WavLM (M8.3), a cleaned-training variant (M9.5), a 5-class variant (M10.5) and permutation importance for the black box (M11.3) were not run.
+\item
+  Text was not used; a text or multimodal comparison is out of scope.
+\end{itemize}
+
+\section{Conclusion}\label{conclusion}
+
+On IEMOCAP, with leave-one-session-out evaluation, black-box models beat interpretable ones by +0.06 {[}+0.05, +0.08{]} UAR on named acoustic features and by far more on learned features. The cost is not a fixed number: it depends on the complexity budget (a dense linear model on WavLM is within 0.010 UAR of the MLP, but a 20-feature one is not), and it is not explained by label noise or by soft labels. In practice: an L1 model on eGeMAPS comes within 3 UAR points of the best eGeMAPS black box at about 21 features, although the tuned model constrained to at most 20 features was 0.064 behind; if accuracy matters most, the learned representation with a dense model is clearly better.
+
+\clearpage
+\appendix
+
+\section{Reproducibility}
+Every number in this document is generated by \texttt{src/m12\_report.py} from files under \texttt{results/}; the LaTeX body is converted from \texttt{report/report.md} by \texttt{src/m13\_latex.py}. Fixed seeds are 1337, 2024 and 7. The CSV tables behind Tables 1--10 are in \texttt{tables/}. Verification output: \texttt{results/m12/verification.json}. Rebuild with \texttt{python\ src/m12\_report.py\ \&\&\ python\ src/m13\_latex.py}.
+
+\end{document}

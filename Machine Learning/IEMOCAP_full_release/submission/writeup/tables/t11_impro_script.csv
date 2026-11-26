@@ -1,0 +1,7 @@
+quantity,value
+impro|egemaps,"+0.060 [+0.037, +0.083]"
+script|egemaps,"+0.052 [+0.032, +0.072]"
+impro_minus_script|egemaps,"+0.008 [-0.021, +0.038]"
+impro|wavlm,"+0.193 [+0.164, +0.222]"
+script|wavlm,"+0.205 [+0.182, +0.228]"
+impro_minus_script|wavlm,"-0.012 [-0.050, +0.024]"

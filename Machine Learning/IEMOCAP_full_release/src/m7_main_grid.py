@@ -21,22 +21,29 @@ C_L1 = np.logspace(-3.5, -0.5, 10)
 C_L2 = np.logspace(-4, 0, 7)
 
 
-def _lr(C, penalty, seed=1337):
+def _lr(C, penalty, seed=1337, cw="balanced"):
     from sklearn.linear_model import LogisticRegression
     if penalty == "l1":
-        return LogisticRegression(l1_ratio=1.0, C=C, solver="saga", class_weight="balanced", max_iter=400, tol=1e-3, random_state=seed)
-    return LogisticRegression(C=C, class_weight="balanced", max_iter=500, random_state=seed)
+        return LogisticRegression(l1_ratio=1.0, C=C, solver="saga", class_weight=cw, max_iter=400, tol=1e-3, random_state=seed)
+    return LogisticRegression(C=C, class_weight=cw, max_iter=500, random_state=seed)
 
 
 def _nnz(clf):
     return int((np.abs(clf.coef_).max(0) > 1e-8).sum())      # a feature counts if ANY class uses it
 
 
-# --- each fn: (Xtr_in, ytr_in, Xva, yva, Xtr, ytr, Xte) -> (dict seed->probs, meta)
+def _unpack(a):
+    """a = (Xi, yi, Xv, yv, Xt, yt, Xe[, extra]). In soft mode `extra` carries sample weights (class weights are
+    already inside them, so sklearn's own class_weight is switched off)."""
+    Xi, yi, Xv, yv, Xt, yt, Xe = a[:7]; ex = a[7] if len(a) > 7 else {}
+    return Xi, yi, Xv, yv, Xt, yt, Xe, ex.get("swi"), ex.get("swt"), ex, (None if ex.get("swi") is not None else "balanced")
+
+
+# --- each fn: (Xtr_in, ytr_in, Xva, yva, Xtr, ytr, Xte[, extra]) -> (dict seed->probs, meta)
 def run_l1lr(a):
-    Xi, yi, Xv, yv, Xt, yt, Xe = a; best = None
+    Xi, yi, Xv, yv, Xt, yt, Xe, swi, swt, ex, cw = _unpack(a); best = None
     for C in C_L1:
-        clf = _lr(C, "l1").fit(Xi, yi); n = _nnz(clf)
+        clf = _lr(C, "l1", cw=cw).fit(Xi, yi, sample_weight=swi); n = _nnz(clf)
         if n <= BUDGET_FEATS:
             u = uar(yv, clf.predict(Xv))
             if best is None or u > best[1]:
@@ -45,7 +52,7 @@ def run_l1lr(a):
         best = (C_L1[0], float("nan"), -1)
     ci = list(C_L1).index(best[0])
     while True:                                           # enforce the budget on the final (4-session) fit
-        clf = _lr(C_L1[ci], "l1").fit(Xt, yt); n = _nnz(clf)
+        clf = _lr(C_L1[ci], "l1", cw=cw).fit(Xt, yt, sample_weight=swt); n = _nnz(clf)
         if n <= BUDGET_FEATS or ci == 0:
             break
         ci -= 1
@@ -55,51 +62,54 @@ def run_l1lr(a):
 
 
 def run_l2lr(a):
-    Xi, yi, Xv, yv, Xt, yt, Xe = a; best = max(((C, uar(yv, _lr(C, "l2").fit(Xi, yi).predict(Xv))) for C in C_L2), key=lambda t: t[1])
-    clf = _lr(best[0], "l2").fit(Xt, yt)
+    Xi, yi, Xv, yv, Xt, yt, Xe, swi, swt, ex, cw = _unpack(a)
+    best = max(((C, uar(yv, _lr(C, "l2", cw=cw).fit(Xi, yi, sample_weight=swi).predict(Xv))) for C in C_L2), key=lambda t: t[1])
+    clf = _lr(best[0], "l2", cw=cw).fit(Xt, yt, sample_weight=swt)
     return {1337: clf.predict_proba(Xe)}, dict(C=float(best[0]), val_uar=best[1])
 
 
 def run_tree(a):
     from sklearn.tree import DecisionTreeClassifier
-    Xi, yi, Xv, yv, Xt, yt, Xe = a; best = None
+    Xi, yi, Xv, yv, Xt, yt, Xe, swi, swt, ex, cw = _unpack(a); best = None
     for leaves in (4, 8, BUDGET_LEAVES):
         for msl in (5, 20, 50):
-            t = DecisionTreeClassifier(max_leaf_nodes=leaves, min_samples_leaf=msl, class_weight="balanced", random_state=1337).fit(Xi, yi)
+            t = DecisionTreeClassifier(max_leaf_nodes=leaves, min_samples_leaf=msl, class_weight=cw, random_state=1337).fit(Xi, yi, sample_weight=swi)
             u = uar(yv, t.predict(Xv))
             if best is None or u > best[2]:
                 best = (leaves, msl, u)
-    t = DecisionTreeClassifier(max_leaf_nodes=best[0], min_samples_leaf=best[1], class_weight="balanced", random_state=1337).fit(Xt, yt)
+    t = DecisionTreeClassifier(max_leaf_nodes=best[0], min_samples_leaf=best[1], class_weight=cw, random_state=1337).fit(Xt, yt, sample_weight=swt)
     assert t.get_n_leaves() <= BUDGET_LEAVES
     return {1337: t.predict_proba(Xe)}, dict(max_leaf_nodes=best[0], min_samples_leaf=best[1], val_uar=best[2], n_leaves=int(t.get_n_leaves()))
 
 
 def run_hgb(a):
     from sklearn.ensemble import HistGradientBoostingClassifier as H
-    Xi, yi, Xv, yv, Xt, yt, Xe = a; best = None
+    Xi, yi, Xv, yv, Xt, yt, Xe, swi, swt, ex, cw = _unpack(a); best = None
     mk = lambda lr, ml, sd: H(learning_rate=lr, max_leaf_nodes=ml, max_iter=300, early_stopping=True, n_iter_no_change=15,
-                              validation_fraction=0.1, class_weight="balanced", random_state=sd)
+                              validation_fraction=0.1, class_weight=cw, random_state=sd)
     for lr in (0.03, 0.1):
         for ml in (15, 31):
-            m = mk(lr, ml, 1337).fit(Xi, yi); u = uar(yv, m.predict(Xv))
+            m = mk(lr, ml, 1337).fit(Xi, yi, sample_weight=swi); u = uar(yv, m.predict(Xv))
             if best is None or u > best[2]:
                 best = (lr, ml, u)
-    return {sd: mk(best[0], best[1], sd).fit(Xt, yt).predict_proba(Xe) for sd in SEEDS}, dict(learning_rate=best[0], max_leaf_nodes=best[1], val_uar=best[2])
+    return {sd: mk(best[0], best[1], sd).fit(Xt, yt, sample_weight=swt).predict_proba(Xe) for sd in SEEDS}, dict(learning_rate=best[0], max_leaf_nodes=best[1], val_uar=best[2])
 
 
 def run_rf(a):
     from sklearn.ensemble import RandomForestClassifier as R
-    Xi, yi, Xv, yv, Xt, yt, Xe = a; best = None
-    mk = lambda mf, msl, n, sd: R(n_estimators=n, max_features=mf, min_samples_leaf=msl, class_weight="balanced_subsample", n_jobs=-1, random_state=sd)
+    Xi, yi, Xv, yv, Xt, yt, Xe, swi, swt, ex, cw = _unpack(a); best = None
+    cw = None if swi is not None else "balanced_subsample"
+    mk = lambda mf, msl, n, sd: R(n_estimators=n, max_features=mf, min_samples_leaf=msl, class_weight=cw, n_jobs=-1, random_state=sd)
     for mf in ("sqrt", 0.3):
         for msl in (1, 5):
-            m = mk(mf, msl, 200, 1337).fit(Xi, yi); u = uar(yv, m.predict(Xv))   # tuned with 200 trees, final fit 500
+            m = mk(mf, msl, 200, 1337).fit(Xi, yi, sample_weight=swi); u = uar(yv, m.predict(Xv))   # tuned with 200 trees, final fit 500
             if best is None or u > best[2]:
                 best = (mf, msl, u)
-    return {sd: mk(best[0], best[1], 500, sd).fit(Xt, yt).predict_proba(Xe) for sd in SEEDS}, dict(max_features=best[0], min_samples_leaf=best[1], val_uar=best[2])
+    return {sd: mk(best[0], best[1], 500, sd).fit(Xt, yt, sample_weight=swt).predict_proba(Xe) for sd in SEEDS}, dict(max_features=best[0], min_samples_leaf=best[1], val_uar=best[2])
 
 
-def _mlp_train(Xtr, ytr, n_layers, seed, epochs, Xva=None, yva=None, patience=10):
+def _mlp_train(Xtr, ytr, n_layers, seed, epochs, Xva=None, yva=None, patience=10, soft=None, wts=None):
+    """soft: (n,4) target distributions and wts: per-utterance weights (class weight of the hard label) -> weighted soft CE."""
     import torch, torch.nn as nn
     torch.manual_seed(seed); torch.set_num_threads(4)
     d = Xtr.shape[1]; layers = []; k = d
@@ -109,11 +119,18 @@ def _mlp_train(Xtr, ytr, n_layers, seed, epochs, Xva=None, yva=None, patience=10
     w = torch.tensor(len(ytr) / (4 * np.maximum(np.bincount(ytr, minlength=4), 1)), dtype=torch.float32)
     opt = torch.optim.AdamW(net.parameters(), lr=1e-3, weight_decay=1e-2); lossf = nn.CrossEntropyLoss(weight=w)
     X = torch.tensor(Xtr, dtype=torch.float32); y = torch.tensor(ytr); g = torch.Generator().manual_seed(seed)
+    if soft is not None:
+        T = torch.tensor(soft, dtype=torch.float32); W = torch.tensor(wts, dtype=torch.float32)
     best = (-1, 0); hist = []
     for ep in range(1, epochs + 1):
         net.train(); perm = torch.randperm(len(X), generator=g)
         for i in range(0, len(X), 128):
-            b = perm[i:i + 128]; opt.zero_grad(); lossf(net(X[b]), y[b]).backward(); opt.step()
+            b = perm[i:i + 128]; opt.zero_grad()
+            if soft is None:
+                lossf(net(X[b]), y[b]).backward()
+            else:
+                ce = -(T[b] * torch.log_softmax(net(X[b]), 1)).sum(1); (W[b] * ce).sum().div(W[b].sum()).backward()
+            opt.step()
         if Xva is not None:
             net.eval()
             with torch.no_grad():
@@ -127,14 +144,14 @@ def _mlp_train(Xtr, ytr, n_layers, seed, epochs, Xva=None, yva=None, patience=10
 
 def run_mlp(a):
     import torch
-    Xi, yi, Xv, yv, Xt, yt, Xe = a; best = None
+    Xi, yi, Xv, yv, Xt, yt, Xe, swi, swt, ex, cw = _unpack(a); best = None
     for nl in (1, 2):
-        _, (u, ep) = _mlp_train(Xi, yi, nl, 1337, 100, Xv, yv)
+        _, (u, ep) = _mlp_train(Xi, yi, nl, 1337, 100, Xv, yv, soft=ex.get("Si"), wts=ex.get("wi"))
         if best is None or u > best[1]:
             best = (nl, u, ep)
     out = {}
     for sd in SEEDS:
-        net, _ = _mlp_train(Xt, yt, best[0], sd, max(best[2], 5)); net.eval()
+        net, _ = _mlp_train(Xt, yt, best[0], sd, max(best[2], 5), soft=ex.get("St"), wts=ex.get("wt")); net.eval()
         with torch.no_grad():
             out[sd] = torch.softmax(net(torch.tensor(Xe, dtype=torch.float32)), 1).numpy()
     return out, dict(hidden_layers=best[0], epochs=best[2], val_uar=best[1])
@@ -143,21 +160,29 @@ def run_mlp(a):
 RUNNERS = dict(l1lr=run_l1lr, l2lr=run_l2lr, tree=run_tree, hgb=run_hgb, rf=run_rf, mlp=run_mlp)
 
 
-def run(model, feature, policy="P2", outdir=None, force=False, folds_only=None, layers=None, partial=False):
-    outdir = Path(outdir or ("results/m7" if policy == "P2" else f"results/m7_{policy}"))
+def run(model, feature, policy="P2", outdir=None, force=False, folds_only=None, layers=None, partial=False, soft=False, per_speaker=True):
+    outdir = Path(outdir or (("results/m9" if soft else "results/m7") if policy == "P2" else f"results/{'m9' if soft else 'm7'}_{policy}"))
     pf = outdir / "preds" / f"{model}__{feature}.parquet"; hf = outdir / "hparams" / f"{model}__{feature}.json"
     if pf.exists() and not force and folds_only is None:
         print(f"skip {model} {feature} (cached)"); return
     d = load_dataset(policy, feature); folds = loso_folds(d.session); parts, meta = [], {}
     if feature == "wavlm":
-        layers = layers or {int(k): v["best_layer"] for k, v in json.load(open(
-            "results/m6/wavlm_layers.json" if policy == "P2" else f"results/m6/wavlm_layers_{policy}.json")).items()}
+        # layers are always the per-fold layers chosen on the P2 inner-validation session (training sessions only, no test use)
+        layers = layers or {int(k): v["best_layer"] for k, v in json.load(open("results/m6/wavlm_layers.json")).items()}
     for f in folds:
         if folds_only and f["fold"] not in folds_only:
             continue
         t0 = time.time(); X = d.X[:, layers[f["fold"]], :] if feature == "wavlm" else d.X
-        fd = FoldData(d, f, X=X); Xi, Xv = fd.inner(); Xt, Xe = fd.outer()
+        fd = FoldData(d, f, X=X, per_speaker=per_speaker); Xi, Xv = fd.inner(); Xt, Xe = fd.outer()
         a = (Xi, d.y[f["inner_train"]], Xv, d.y[f["inner_val"]], Xt, d.y[f["train"]], Xe)
+        if soft:
+            from src.common.soft import expand, class_weights
+            yi_h, yt_h = d.y[f["inner_train"]], d.y[f["train"]]; Si, St = d.y_soft[f["inner_train"]], d.y_soft[f["train"]]
+            if model == "mlp":
+                a = a + (dict(Si=Si, St=St, wi=class_weights(yi_h)[yi_h], wt=class_weights(yt_h)[yt_h]),)
+            else:
+                Xi2, yi2, swi, _ = expand(Xi, Si, yi_h); Xt2, yt2, swt, _ = expand(Xt, St, yt_h)
+                a = (Xi2, yi2, Xv, d.y[f["inner_val"]], Xt2, yt2, Xe, dict(swi=swi, swt=swt))
         probs, m = RUNNERS[model](a)
         for sd, P in probs.items():
             parts.append(save_preds(outdir / "tmp.parquet", d, f["test"], f["fold"], sd, P))
@@ -177,8 +202,8 @@ def run(model, feature, policy="P2", outdir=None, force=False, folds_only=None, 
     return meta
 
 
-def merge_partial(model, feature, policy="P2", outdir=None):
-    outdir = Path(outdir or ("results/m7" if policy == "P2" else f"results/m7_{policy}")); pdir = outdir / "partial"
+def merge_partial(model, feature, policy="P2", outdir=None, soft=False):
+    outdir = Path(outdir or (("results/m9" if soft else "results/m7") if policy == "P2" else f"results/{'m9' if soft else 'm7'}_{policy}")); pdir = outdir / "partial"
     files = [pdir / f"{model}__{feature}__f{k}.parquet" for k in range(1, 6)]
     assert all(f.exists() for f in files), "missing folds: " + str([f.name for f in files if not f.exists()])
     (outdir / "preds").mkdir(parents=True, exist_ok=True); (outdir / "hparams").mkdir(parents=True, exist_ok=True)
@@ -192,10 +217,10 @@ def merge_partial(model, feature, policy="P2", outdir=None):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(); ap.add_argument("--policy", default="P2"); ap.add_argument("--models", default="l1lr,tree,l2lr,hgb,rf,mlp")
-    ap.add_argument("--features", default="egemaps,wavlm"); ap.add_argument("--force", action="store_true"); ap.add_argument("--folds", default=None); ap.add_argument("--partial", action="store_true"); ap.add_argument("--merge", action="store_true")
+    ap.add_argument("--features", default="egemaps,wavlm"); ap.add_argument("--force", action="store_true"); ap.add_argument("--folds", default=None); ap.add_argument("--partial", action="store_true"); ap.add_argument("--merge", action="store_true"); ap.add_argument("--soft", action="store_true"); ap.add_argument("--outdir", default=None); ap.add_argument("--nonorm", action="store_true")
     a = ap.parse_args()
     for feat in a.features.split(","):
         for mdl in a.models.split(","):
             if a.merge:
-                merge_partial(mdl, feat, a.policy); continue
-            run(mdl, feat, a.policy, force=a.force, folds_only=[int(x) for x in a.folds.split(",")] if a.folds else None, partial=a.partial)
+                merge_partial(mdl, feat, a.policy, soft=a.soft); continue
+            run(mdl, feat, a.policy, outdir=a.outdir, per_speaker=not a.nonorm, force=a.force, folds_only=[int(x) for x in a.folds.split(",")] if a.folds else None, partial=a.partial, soft=a.soft)

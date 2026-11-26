@@ -1,0 +1,5 @@
+setting,interpretable_egemaps,blackbox_egemaps,interpretable_wavlm,blackbox_wavlm,human_ceiling
+"hard labels, all test","0.500 [0.486,0.514] (L1-LR (<=20 feats))","0.564 [0.550,0.577] (MLP)","0.472 [0.457,0.487] (Tree (<=16 leaves))","0.679 [0.666,0.692] (MLP)",0.657
+"soft labels, all test","0.518 [0.504,0.532] (L1-LR (<=20 feats))","0.566 [0.551,0.580] (MLP)","0.455 [0.441,0.471] (Tree (<=16 leaves))","0.681 [0.668,0.694] (MLP)",0.657
+"hard labels, high-agreement test","0.554 [0.532,0.577] (L1-LR (<=20 feats))","0.637 [0.614,0.659] (MLP)","0.523 [0.496,0.549] (Tree (<=16 leaves))","0.749 [0.728,0.771] (MLP)",0.657
+"soft labels, high-agreement test","0.570 [0.545,0.593] (L1-LR (<=20 feats))","0.638 [0.614,0.661] (MLP)","0.497 [0.472,0.524] (Tree (<=16 leaves))","0.767 [0.746,0.788] (MLP)",0.657

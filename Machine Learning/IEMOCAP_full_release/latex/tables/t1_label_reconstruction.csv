@@ -1,0 +1,4 @@
+rule,match_rate
+A,1.000
+B,0.997
+C,0.946

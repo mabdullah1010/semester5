@@ -1,0 +1,10 @@
+quantity,value
+Delta_model eGeMAPS,"+0.064 [+0.049, +0.079]"
+Delta_model WavLM,"+0.207 [+0.189, +0.224]"
+Delta_total,"+0.179 [+0.160, +0.195]"
+Delta_feature l1lr,"-0.000 [-0.018, +0.016]"
+Delta_feature tree,"-0.020 [-0.039, -0.000]"
+Delta_feature l2lr,"+0.116 [+0.099, +0.133]"
+Delta_feature hgb,"+0.096 [+0.081, +0.111]"
+Delta_feature rf,"+0.069 [+0.053, +0.084]"
+Delta_feature mlp,"+0.115 [+0.099, +0.130]"
